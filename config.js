@@ -1,7 +1,7 @@
 
-const DB_NAME = 'lyricsTool';
-const CONFIG_STORE_NAME = 'config';
+export const CONFIG_STORE_NAME = 'config';
 
+import { openDatabase } from './database';
 import { useState, useEffect } from 'react';
 
 class StoreEventEmitter {
@@ -45,32 +45,11 @@ export class IndexedDBStore {
     if (this.db) return this.db;
     if (this.loadPromise) return this.loadPromise;
 
-    this.loadPromise = this.openDatabase();
+    this.loadPromise = openDatabase();
     this.db = await this.loadPromise;
 
     delete this.loadPromise;
     return this.db;
-  }
-
-  openDatabase() {
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.open(DB_NAME, 1);
-
-      request.onupgradeneeded = (event) => {
-        const db = event.target.result;
-        if (!db.objectStoreNames.contains(this.storeName)) {
-          db.createObjectStore(this.storeName, { keyPath: 'key' });
-        }
-      };
-
-      request.onsuccess = (event) => {
-        resolve(event.target.result);
-      };
-
-      request.onerror = (event) => {
-        reject('Database error: ' + event.target.errorCode);
-      };
-    });
   }
 
   async get(key) {

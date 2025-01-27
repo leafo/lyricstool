@@ -15,13 +15,13 @@ export function DumpConfig() {
     }
   };
 
-  return (
-    <section>
-      <h2>Config:</h2>
+  return <section>
+    <details>
+      <summary>Config</summary>
       <pre>{JSON.stringify(fullConfig, null, 2)}</pre>
       <button type="button" onClick={clearConfig}>Clear Config</button>
-    </section>
-  );
+    </details>
+  </section>
 }
 
 // just testing the config hooks

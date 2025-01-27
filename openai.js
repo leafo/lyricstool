@@ -2,7 +2,7 @@
 import { config } from './config.js';
 
 export async function chatgpt(prompt) {
-  const apiKey = await config.get("openai_api_key")
+  const apiKey = await config.getValue("openai_api_key")
 
   if (!apiKey) {
     return Promise.reject('config.openai_api_key is not set');
@@ -15,9 +15,9 @@ export async function chatgpt(prompt) {
       'Authorization': `Bearer ${apiKey}`
     },
     body: JSON.stringify({
-      model: 'gpt-3.5-turbo', // or whichever model you'd like to use
+      model: 'gpt-4o', // or whichever model you'd like to use
       messages: [
-        { role: 'system', content: 'You are a helpful assistant.' }
+        { role: 'system', content: 'You are a helpful assistant.' },
         { role: 'user', content: prompt }
       ]
     })
