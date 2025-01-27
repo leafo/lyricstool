@@ -1,10 +1,10 @@
 
 const DB_NAME = 'lyricsTool';
-const STORE_NAME = 'configStore';
+const CONFIG_STORE_NAME = 'config';
 
 import { useState, useEffect } from 'react';
 
-class ConfigEventEmitter {
+class StoreEventEmitter {
   constructor() {
     this.listeners = {};
   }
@@ -34,9 +34,10 @@ class ConfigEventEmitter {
   }
 }
 
-class Config {
-  constructor() {
-    this.eventEmitter = new ConfigEventEmitter();
+export class IndexedDBStore {
+  constructor(storeName) {
+    this.storeName = storeName;
+    this.eventEmitter = new StoreEventEmitter();
     this.getDb();
   }
 
@@ -46,6 +47,7 @@ class Config {
 
     this.loadPromise = this.openDatabase();
     this.db = await this.loadPromise;
+
     delete this.loadPromise;
     return this.db;
   }
@@ -56,8 +58,8 @@ class Config {
 
       request.onupgradeneeded = (event) => {
         const db = event.target.result;
-        if (!db.objectStoreNames.contains(STORE_NAME)) {
-          db.createObjectStore(STORE_NAME, { keyPath: 'key' });
+        if (!db.objectStoreNames.contains(this.storeName)) {
+          db.createObjectStore(this.storeName, { keyPath: 'key' });
         }
       };
 
@@ -74,8 +76,8 @@ class Config {
   async get(key) {
     const db = await this.getDb();
     return new Promise((resolve, reject) => {
-      const transaction = db.transaction([STORE_NAME], 'readonly');
-      const store = transaction.objectStore(STORE_NAME);
+      const transaction = db.transaction([this.storeName], 'readonly');
+      const store = transaction.objectStore(this.storeName);
       const request = store.get(key);
 
       request.onsuccess = (event) => {
@@ -96,8 +98,8 @@ class Config {
   async set(key, value) {
     const db = await this.getDb();
     return new Promise((resolve, reject) => {
-      const transaction = db.transaction([STORE_NAME], 'readwrite');
-      const store = transaction.objectStore(STORE_NAME);
+      const transaction = db.transaction([this.storeName], 'readwrite');
+      const store = transaction.objectStore(this.storeName);
       const request = store.put({ key, value });
 
       request.onsuccess = () => {
@@ -111,11 +113,29 @@ class Config {
     });
   }
 
+  async remove(key) {
+    const db = await this.getDb();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([this.storeName], 'readwrite');
+      const store = transaction.objectStore(this.storeName);
+      const request = store.delete(key);
+
+      request.onsuccess = () => {
+        this.eventEmitter.emit(key, null);
+        resolve(true);
+      };
+
+      request.onerror = (event) => {
+        reject('Remove error: ' + event.target.errorCode);
+      };
+    });
+  }
+
   async getFull() {
     const db = await this.getDb();
     return new Promise((resolve, reject) => {
-      const transaction = db.transaction([STORE_NAME], 'readonly');
-      const store = transaction.objectStore(STORE_NAME);
+      const transaction = db.transaction([this.storeName], 'readonly');
+      const store = transaction.objectStore(this.storeName);
       const request = store.getAll();
 
       request.onsuccess = (event) => {
@@ -133,7 +153,7 @@ class Config {
   }
 }
 
-export const config = new Config();
+export const config = new IndexedDBStore(CONFIG_STORE_NAME);
 
 export const useFullConfig = () => {
   const [currentConfig, setCurrentConfig] = useState({});

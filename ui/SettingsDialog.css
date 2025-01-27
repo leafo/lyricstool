@@ -1,0 +1,23 @@
+.settingsDialog {
+  form {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+}
+
+.buttons  {
+  display: flex;
+  flex-direction: row;
+  gap: 5px;
+
+  :last-child {
+    margin-left: auto;
+  }
+}

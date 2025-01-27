@@ -1,7 +1,7 @@
 
 build:
-	esbuild main.js --bundle --outfile=bundle.js --loader:.js=jsx
+	npx esbuild main.js --bundle --outfile=bundle.js --loader:.js=jsx --loader:.css=local-css
 
 watch:
-	esbuild main.js --bundle --outfile=bundle.js --loader:.js=jsx --watch
+	npx esbuild main.js --bundle --outfile=bundle.js --loader:.js=jsx --loader:.css=local-css --watch
 

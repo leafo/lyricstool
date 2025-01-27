@@ -1,0 +1,42 @@
+
+.dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 600px;
+  width: 90vw;
+
+  background: white;
+  border: 1px solid #bcbcbc;
+  border-radius: 6px;
+  box-shadow: 0 0 20px rgba(0,0,0,0.2);
+  padding: 20px;
+
+  h2 {
+    margin: 0;
+    font-size: 18px;
+  }
+
+  form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    label {
+      display: flex;
+      flex-direction: column;
+      font-size: 14px;
+      gap: 5px;
+
+      input, textarea {
+        width: 100%;
+        padding: 5px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        box-sizing: border-box;
+      }
+    }
+  }
+
+
+}
