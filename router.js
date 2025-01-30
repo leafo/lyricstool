@@ -27,19 +27,37 @@ function shallowCompare(obj1, obj2) {
   return true;
 }
 
-// Hook to retrieve the current route from the query string
-export function useRoute() {
+// strip out everything except the specified fields from an object
+function filterObject(obj, fields) {
+  if (!fields) {
+    return obj;
+  }
+
+  const filteredObj = {};
+  for (const key of fields) {
+    if (key in obj) {
+      filteredObj[key] = obj[key];
+    }
+  }
+  return shallowCompare(obj, filteredObj) ? obj : filteredObj;
+}
+
+
+// Return the query string as a state object
+// fields: optional limit the result to only the specified fields (will prevent re-renders if when unlisted fields change)
+export function useRoute(fields=null) {
   const [routeParams, setRouteParams] = useState(() => {
     const queryParams = new URLSearchParams(window.location.search);
-    return Object.fromEntries(queryParams.entries());
+    const params = Object.fromEntries(queryParams.entries());
+    return filterObject(params, fields);
   });
 
   useEffect(() => {
     const handlePopState = () => {
       const queryParams = new URLSearchParams(window.location.search);
-      const newParams = Object.fromEntries(queryParams.entries());
+      const newParams = filterObject(Object.fromEntries(queryParams.entries()), fields);
       if (!shallowCompare(routeParams, newParams)) {
-        setRouteParams(newParams);
+        setRouteParams(newParams, fields);
       }
     };
 
@@ -48,13 +66,13 @@ export function useRoute() {
     return () => {
       window.removeEventListener('popstate', handlePopState);
     };
-  }, [routeParams]);
+  }, [routeParams, JSON.stringify(fields)]);
 
   return routeParams;
 }
 
 export function useRouteToggle(param) {
-  const routeParams = useRoute();
+  const routeParams = useRoute([param]);
 
   const setParam = (value) => {
     updateRoute({ [param]: value });

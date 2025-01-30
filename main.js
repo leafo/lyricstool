@@ -4,8 +4,6 @@ import './ui/global.css';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 
-import { useConfig } from './config.js';
-
 import { SongList } from './ui/SongList.js';
 import { SettingsDialog } from './ui/SettingsDialog.js';
 import { Header } from './ui/Header.js';
