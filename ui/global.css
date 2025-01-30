@@ -1,4 +1,9 @@
 
+:root {
+  --border-radius: 4px;
+  --border-color: #ccc;
+}
+
 body {
   font-family: sans-serif;
   font-size: 16px;

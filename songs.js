@@ -30,7 +30,9 @@ export async function insertSong(song) {
   });
 }
 
-export function lookupSong(id) {
+export async function lookupSong(id) {
+  const db = await openDatabase();
+
   return new Promise((resolve, reject) => {
     const transaction = db.transaction([STORE_NAME], 'readonly');
     const store = transaction.objectStore(STORE_NAME);
@@ -47,7 +49,7 @@ export function lookupSong(id) {
   });
 }
 
-export function updateSong(song) {
+export async function updateSong(song) {
   const db = await openDatabase();
 
   return new Promise((resolve, reject) => {
@@ -66,7 +68,9 @@ export function updateSong(song) {
   });
 }
 
-export function removeSong(id) {
+export async function deleteSong(id) {
+  const db = await openDatabase();
+
   return new Promise((resolve, reject) => {
     const transaction = db.transaction([STORE_NAME], 'readwrite');
     const store = transaction.objectStore(STORE_NAME);
