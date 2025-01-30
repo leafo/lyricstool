@@ -10,9 +10,10 @@ import { SongList } from './ui/SongList.js';
 import { SettingsDialog } from './ui/SettingsDialog.js';
 import { Header } from './ui/Header.js';
 import { DumpConfig } from './ui/Debug.js';
-import { NewSongDialog } from './ui/NewSongDialog.js';
 
 import { chatgpt } from './openai.js';
+
+import { useRouteToggle } from './router.js';
 
 // just to test the prompt query works
 function PromptTest() {
@@ -48,14 +49,14 @@ function PromptTest() {
 
 
 function App() {
-  const [showSettings, setShowSettings] = useConfig('ui:settingsOpen');
-  const [showNewSongDialog, setShowNewSongDialog] = useConfig('ui:newSongDialogOpen');
+  const [showSettings, setShowSettings] = useRouteToggle('showSettings');
+
+  // TODO: use this to control the page
+  // const routeParams = useRoute();
 
   return <>
     <Header />
     <SongList />
-
-    <button onClick={() => setShowNewSongDialog(true)}>New Song...</button>
 
     <details>
       <summary>Prompt Test</summary>
@@ -63,7 +64,6 @@ function App() {
     </details>
 
     <DumpConfig />
-    {showNewSongDialog && <NewSongDialog onClose={() => setShowNewSongDialog(false)} />}
     {showSettings && <SettingsDialog onClose={() => setShowSettings(false)} />}
   </>;
 }

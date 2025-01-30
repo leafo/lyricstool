@@ -2,7 +2,23 @@
 import React, { useState, useEffect } from 'react';
 import { getSongsOrderedByIdDesc } from '../songs';
 
+import {songList, songRow} from './SongList.css';
+
+import { useRouteToggle } from '../router.js';
+
+import { NewSongDialog } from './NewSongDialog.js';
+
+const SongRow = ({ song }) => (
+  <li className={songRow}>
+    <h3>{song.title}</h3>
+    {song.artist && <p>Artist: {song.artist}</p>}
+    <p>{song.lyrics}</p>
+    <button>Edit</button>
+  </li>
+)
+
 export const SongList = () => {
+  const [showNewSongDialog, setShowNewSongDialog] = useRouteToggle('newSong');
   const [songs, setSongs] = useState([]);
 
   useEffect(() => {
@@ -18,21 +34,20 @@ export const SongList = () => {
     fetchSongs();
   }, []);
 
-  return (
-    <div>
+  return <>
+    <div className={songList}>
       <h2>Songs List</h2>
+      <nav>
+        <button onClick={() => setShowNewSongDialog(true)}>New Song...</button>
+      </nav>
       <ul>
         {songs.map((song) => (
-          <li key={song.id}>
-            <h3>{song.title}</h3>
-            {song.artist && <p>Artist: {song.artist}</p>}
-            <p>{song.lyrics}</p>
-            <button>Edit</button>
-          </li>
+          <SongRow key={song.id} song={song} />
         ))}
       </ul>
     </div>
-  );
+    {showNewSongDialog && <NewSongDialog onClose={() => setShowNewSongDialog(false)} />}
+  </>
 };
 
 
