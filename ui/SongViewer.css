@@ -1,0 +1,9 @@
+
+
+.songViewer {
+  background-color: var(--content-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  padding: 10px;
+  margin: 10px;
+}

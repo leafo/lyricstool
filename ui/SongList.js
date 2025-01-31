@@ -2,20 +2,31 @@
 import React, { useState, useEffect } from 'react';
 import { getSongsOrderedByIdDesc } from '../songs';
 
-import {songList, songRow} from './SongList.css';
+import { songList, songRow } from './SongList.css';
 
 import { useRoute, useRouteToggle, updateRoute } from '../router.js';
 
 import { NewSongDialog, EditSongDialog } from './NewSongDialog.js';
 
-const SongRow = ({ song }) => (
-  <li className={songRow}>
+const SongRow = ({ song }) => {
+  const onClick = React.useCallback(e => {
+    const btn = e.target.closest('button')
+    if (btn) {
+      return;
+    }
+
+    e.preventDefault();
+    e.stopPropagation();
+    updateRoute({ viewSongId: song.id });
+  }, [song.id]);
+
+  return <li className={songRow} onClick={onClick} tabIndex="0" role="button">
     <h3>{song.title}</h3>
     {song.artist && <p><strong>Artist:</strong> {song.artist}</p>}
     <p>{song.lyrics}</p>
-    <button onClick={() => updateRoute({ editSongId: song.id })}>Edit</button>
+    <button type="button" onClick={() => updateRoute({ editSongId: song.id })}>Edit</button>
   </li>
-)
+}
 
 export const SongList = () => {
   const [showNewSongDialog, setShowNewSongDialog] = useRouteToggle('newSong');

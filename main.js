@@ -5,13 +5,15 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 
 import { SongList } from './ui/SongList.js';
+import { SongViewer } from './ui/SongViewer.js';
+
 import { SettingsDialog } from './ui/SettingsDialog.js';
 import { Header } from './ui/Header.js';
 import { DumpConfig } from './ui/Debug.js';
 
 import { chatgpt } from './openai.js';
 
-import { useRouteToggle } from './router.js';
+import { useRouteToggle, useRoute } from './router.js';
 
 // just to test the prompt query works
 function PromptTest() {
@@ -49,12 +51,12 @@ function PromptTest() {
 function App() {
   const [showSettings, setShowSettings] = useRouteToggle('showSettings');
 
-  // TODO: use this to control the page
-  // const routeParams = useRoute();
+  const routeParams = useRoute(["viewSongId"]);
 
   return <>
     <Header />
-    <SongList />
+
+    {routeParams.viewSongId ? <SongViewer songId={routeParams.viewSongId} /> : <SongList />}
 
     <details>
       <summary>Prompt Test</summary>
