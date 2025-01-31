@@ -5,9 +5,18 @@
   gap: 10px;
   padding: 10px;
 
-  h2 {
-    margin: 0
+  nav {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+
+    h2 {
+      margin: 0;
+      font-size: 16px;
+      margin-right: auto;
+    }
   }
+
 
   ul {
     padding: 0;
@@ -20,10 +29,11 @@
 }
 
 .songRow {
+  background-color: var(--content-bg);
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 3px;
+  gap: 5px;
   border: 1px solid var(--border-color);
   padding: 10px;
   border-radius: var(--border-radius);
@@ -33,6 +43,6 @@
   }
 
   p {
-    margin: 5px 0;
+    margin: 0;
   }
 }

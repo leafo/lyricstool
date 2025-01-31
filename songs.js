@@ -25,12 +25,17 @@ export async function insertSong(song) {
     };
 
     request.onerror = (event) => {
-      reject(`Insert error: ${event.target.errorCode}`);
+      reject(new Error(`Failed to insert song: ${event.target.errorCode}`));
     };
   });
 }
 
-export async function lookupSong(id) {
+export async function findSong(id) {
+  if (isNaN(parseInt(id, 10))) {
+    return Promise.reject(new Error('Invalid ID: ID must be an integer'));
+  }
+  id = parseInt(id, 10);
+
   const db = await openDatabase();
 
   return new Promise((resolve, reject) => {
@@ -40,11 +45,15 @@ export async function lookupSong(id) {
     const request = store.get(id);
 
     request.onsuccess = () => {
-      resolve(request.result);
+      if (request.result != null) {
+        resolve(request.result);
+      } else {
+        reject(new Error(`Failed to find song by id ${id}`));
+      }
     };
 
     request.onerror = (event) => {
-      reject(`Lookup error: ${event.target.errorCode}`);
+      reject(new Error(`Lookup error: ${event.target.errorCode}`));
     };
   });
 }
@@ -63,7 +72,7 @@ export async function updateSong(song) {
     };
 
     request.onerror = (event) => {
-      reject(`Update error: ${event.target.errorCode}`);
+      reject(new Error(`Failed to update song: ${event.target.errorCode}`));
     };
   });
 }
@@ -82,7 +91,7 @@ export async function deleteSong(id) {
     };
 
     request.onerror = (event) => {
-      reject(`Remove error: ${event.target.errorCode}`);
+      reject(new Error(`Failed to delete song: ${event.target.errorCode}`));
     };
   });
 }
@@ -112,7 +121,7 @@ export async function getSongsOrderedByIdDesc(limit, offset) {
     };
 
     request.onerror = (event) => {
-      reject(`Get songs error: ${event.target.errorCode}`);
+      reject(new Error(`Failed to get songs: ${event.target.errorCode}`));
     };
   });
 }

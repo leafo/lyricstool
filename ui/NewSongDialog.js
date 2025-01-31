@@ -3,13 +3,16 @@ import React from 'react';
 import './NewSongDialog.css';
 
 import {Dialog} from './Dialog';
+import {useAsync} from '../util';
 
 import * as songs from '../songs';
 
-export function SongForm({ref, onSubmit, song}) {
+export function SongForm({ref, onSubmit, song, loading, submitLabel}) {
+  const formRef = React.useRef();
+
   React.useImperativeHandle(ref, () => ({
     serialize() {
-      const formData = new FormData(ref.current);
+      const formData = new FormData(formRef.current);
       return {
         title: formData.get('title'),
         artist: formData.get('artist'),
@@ -19,7 +22,7 @@ export function SongForm({ref, onSubmit, song}) {
     }
   }));
 
-  return <form onSubmit={onSubmit}>
+  return <form ref={formRef} onSubmit={onSubmit}>
     <label>
       Title
       <input type="text" name="title" defaultValue={song?.title || ''} required />
@@ -41,7 +44,7 @@ export function SongForm({ref, onSubmit, song}) {
     </label>
 
     <div>
-      <button type="submit">Create Song</button>
+      <button type="submit" disabled={loading}>{submitLabel || 'Save'}</button>
     </div>
   </form>
 }
@@ -69,34 +72,41 @@ export function NewSongDialog({onClose}) {
 
   return <Dialog onClose={onClose}>
     <h2>New Song</h2>
-    <SongForm ref={formRef} onSubmit={handleSave} />
+    <SongForm ref={formRef} onSubmit={handleSave} submitLabel="Create Song" />
   </Dialog>
 }
 
-export function EditSongDialog({song, onClose}) {
-  const [loading, setLoading] = React.useState(false);
+export function EditSongDialog({songId, onClose}) {
   const formRef = React.useRef();
+  const [loading, setLoading] = React.useState(false);
 
-  const handleSave = async (e) => {
-    e.preventDefault();
-    if (loading) {
-      return;
-    }
+  const [content] = useAsync(() =>
+    songs.findSong(songId).then(song => {
+      const handleSave = async (e) => {
+        e.preventDefault();
+        if (loading) {
+          return;
+        }
 
-    setLoading(true);
+        setLoading(true);
 
-    const data = formRef.current.serialize();
-    const updatedSong = {...song, ...data};
-    updatedSong.updatedAt = new Date().toISOString()
+        const data = formRef.current.serialize();
+        const updatedSong = {...song, ...data};
+        updatedSong.updatedAt = new Date().toISOString()
 
-    console.log("Updating song...", updatedSong);
-    console.log(await songs.updateSong(song.id, updatedSong))
-    onClose();
-  };
+        console.log(await songs.updateSong(updatedSong))
+        onClose();
+      };
+
+      return <SongForm ref={formRef} onSubmit={handleSave} song={song} loading={loading} />
+    }).catch(err =>
+      <p>{err.toString()}</p>
+    )
+  , [songId]);
 
   return <Dialog onClose={onClose}>
     <h2>Edit Song</h2>
-    <SongForm onSubmit={handleSave} song={song} />
+    {content}
   </Dialog>
 }
 

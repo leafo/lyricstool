@@ -4,22 +4,23 @@ import { getSongsOrderedByIdDesc } from '../songs';
 
 import {songList, songRow} from './SongList.css';
 
-import { useRouteToggle } from '../router.js';
+import { useRoute, useRouteToggle, updateRoute } from '../router.js';
 
-import { NewSongDialog } from './NewSongDialog.js';
+import { NewSongDialog, EditSongDialog } from './NewSongDialog.js';
 
 const SongRow = ({ song }) => (
   <li className={songRow}>
     <h3>{song.title}</h3>
-    {song.artist && <p>Artist: {song.artist}</p>}
+    {song.artist && <p><strong>Artist:</strong> {song.artist}</p>}
     <p>{song.lyrics}</p>
-    <button>Edit</button>
+    <button onClick={() => updateRoute({ editSongId: song.id })}>Edit</button>
   </li>
 )
 
 export const SongList = () => {
   const [showNewSongDialog, setShowNewSongDialog] = useRouteToggle('newSong');
-  const [songs, setSongs] = useState([]);
+  const routeParams = useRoute(["editSongId"])
+  const [songs, setSongs] = useState([])
 
   useEffect(() => {
     const fetchSongs = async () => {
@@ -36,8 +37,8 @@ export const SongList = () => {
 
   return <>
     <div className={songList}>
-      <h2>Songs List</h2>
       <nav>
+        <h2>Songs List</h2>
         <button onClick={() => setShowNewSongDialog(true)}>New Song...</button>
       </nav>
       <ul>
@@ -47,6 +48,7 @@ export const SongList = () => {
       </ul>
     </div>
     {showNewSongDialog && <NewSongDialog onClose={() => setShowNewSongDialog(false)} />}
+    {routeParams.editSongId && <EditSongDialog songId={routeParams.editSongId} onClose={() => updateRoute({ editSongId: false })} />}
   </>
 };
 

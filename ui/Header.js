@@ -10,7 +10,7 @@ export function Header() {
 
   return <header className={header}>
     <h1>Lyrics Tool</h1>
-    <button className={settingsToggle} onClick={() => setShowSettings(true)}>Show Settings</button>
+    <button className={settingsToggle} onClick={() => setShowSettings(true)}>Settings...</button>
   </header>
 }
 

@@ -2,17 +2,21 @@
 :root {
   --border-radius: 4px;
   --border-color: #ccc;
+  --body-bg: #E7E7E7;
+  --header-bg: white;
+  --content-bg: white;
 }
 
 body {
   font-family: sans-serif;
-  font-size: 16px;
+  font-size: 14px;
   padding: 0;
   margin: 0;
+  background-color: var(--body-bg);
 }
 
 dialog::backdrop {
-  background-color: rgba(255, 255, 255, 0.5);
+  background-color: rgba(255, 255, 255, 0.8);
 }
 
 button {
@@ -27,4 +31,9 @@ button {
   border: 1px solid #727290;
   cursor: pointer;
   text-decoration: none;
+
+  &:disabled {
+    filter: grayscale(1);
+    color: rgba(255, 255, 255, 0.5);
+  }
 }

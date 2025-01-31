@@ -4,12 +4,13 @@
   flex-direction: column;
   gap: 10px;
   max-width: 600px;
-  width: 90vw;
+  width: 95vw;
+  box-sizing: border-box;
 
   background: white;
   border: 1px solid #bcbcbc;
   border-radius: 6px;
-  box-shadow: 0 0 20px rgba(0,0,0,0.2);
+  box-shadow: 0 0 10px rgba(0,0,0,0.2);
   padding: 20px;
 
   h2 {
