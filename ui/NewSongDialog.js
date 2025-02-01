@@ -7,6 +7,21 @@ import {useAsync} from '../util';
 
 import * as songs from '../songs';
 
+import * as gemini from '../gemini';
+
+// do any processing of the song data before saving
+async function processSong(song) {
+  const response = await gemini.chunkLyrics(song.lyrics);
+
+  if (!response.chunks) {
+    return Promise.reject(new Error('Failed to extract chunks from lyrics'));
+  }
+
+  song.chunks = response.chunks
+
+  return song
+}
+
 export function SongForm({ref, onSubmit, song, loading, submitLabel}) {
   const formRef = React.useRef();
 
@@ -53,6 +68,7 @@ export function NewSongDialog({onClose}) {
   const [loading, setLoading] = React.useState(false);
   const formRef = React.useRef();
 
+  // TODO: this needs to capture errors
   const handleSave = async (e) => {
     e.preventDefault();
     if (loading) {
@@ -60,13 +76,14 @@ export function NewSongDialog({onClose}) {
     }
 
     setLoading(true);
-    const data = formRef.current.serialize();
-    data.createdAt = new Date().toISOString()
-    data.updatedAt = new Date().toISOString()
 
-    console.log("Creating new song...", data);
-    const songId = await songs.insertSong(data)
-    console.log("New song created", songId);
+    let newSong = formRef.current.serialize();
+    newSong.createdAt = new Date().toISOString()
+    newSong.updatedAt = new Date().toISOString()
+
+    newSong = await processSong(newSong);
+
+    const songId = await songs.insertSong(newSong);
     onClose();
   };
 
@@ -79,9 +96,15 @@ export function NewSongDialog({onClose}) {
 export function EditSongDialog({songId, onClose}) {
   const formRef = React.useRef();
   const [loading, setLoading] = React.useState(false);
+  const [song, error] = songs.useSong(songId);
 
-  const [content] = useAsync(() =>
-    songs.findSong(songId).then(song => {
+  const content = React.useMemo(() => {
+    if (error) {
+      return <p>{error.toString()}</p>
+    }
+
+    if (song) {
+      // TOOD: this needs to capture errors on failure
       const handleSave = async (e) => {
         e.preventDefault();
         if (loading) {
@@ -91,18 +114,17 @@ export function EditSongDialog({songId, onClose}) {
         setLoading(true);
 
         const data = formRef.current.serialize();
-        const updatedSong = {...song, ...data};
+        let updatedSong = {...song, ...data};
         updatedSong.updatedAt = new Date().toISOString()
 
-        console.log(await songs.updateSong(updatedSong))
+        updatedSong = await processSong(updatedSong);
+        await songs.updateSong(updatedSong)
         onClose();
       };
 
       return <SongForm ref={formRef} onSubmit={handleSave} song={song} loading={loading} />
-    }).catch(err =>
-      <p>{err.toString()}</p>
-    )
-  , [songId]);
+    }
+  }, [song, error, loading]);
 
   return <Dialog onClose={onClose}>
     <h2>Edit Song</h2>

@@ -8,6 +8,7 @@
 
 
 import { openDatabase } from './database';
+import {useAsync} from './util';
 
 const STORE_NAME = 'songs';
 
@@ -125,4 +126,10 @@ export async function getSongsOrderedByIdDesc(limit, offset) {
     };
   });
 }
+
+// TODO: this should listen to changes when the song is updated
+export function useSong(songId) {
+  return useAsync(() => findSong(songId), [songId]);
+}
+
 

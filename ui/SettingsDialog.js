@@ -55,6 +55,10 @@ export function SettingsDialog({onClose}) {
           OpenAI API Key
           <ConfigInput ref={formRefs.openAiApiKey} name="openai_api_key" />
         </label>
+        <label>
+          Gemini API Key
+          <ConfigInput ref={formRefs.geminiApiKey} name="gemini_api_key" />
+        </label>
         <div className={buttons}>
           <button type="submit">Save</button>
           <button type="button" onClick={onClose}>Close</button>

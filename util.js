@@ -4,10 +4,14 @@ import React from 'react';
 
 export function useAsync(fn, inputs) {
   const [result, setResult] = React.useState(null);
+  const [error, setError] = React.useState(null);
   const [loading, setLoading] = React.useState(false);
 
   React.useEffect(() => {
     setLoading(true);
+    setResult(null);
+    setError(null);
+
     let isMounted = true;
 
     fn().then(result => {
@@ -18,7 +22,7 @@ export function useAsync(fn, inputs) {
     }).catch(result => {
       if (isMounted) {
         setLoading(false);
-        setResult(result);
+        setError(result);
       }
     });
 
@@ -27,5 +31,5 @@ export function useAsync(fn, inputs) {
     };
   }, inputs);
 
-  return [result, loading];
+  return [result, error, loading];
 }

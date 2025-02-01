@@ -12,6 +12,7 @@ import { Header } from './ui/Header.js';
 import { DumpConfig } from './ui/Debug.js';
 
 import { chatgpt } from './openai.js';
+import { gemini } from './gemini.js';
 
 import { useRouteToggle, useRoute } from './router.js';
 
@@ -21,23 +22,39 @@ function PromptTest() {
   const [response, setResponse] = React.useState('');
   const [error, setError] = React.useState(null);
 
+  const modelSelectRef = React.useRef();
+
   const submitPrompt = async (e) => {
     e.preventDefault();
     try {
-      const result = await chatgpt(prompt);
-      setResponse(result);
+      const model = modelSelectRef.current.value;
+      if (model === 'chatgpt') {
+        setResponse(await chatgpt(prompt));
+      } else if (model === 'gemini') {
+        setResponse(await gemini(prompt));
+      } else {
+        throw new Error(`Unknown model: ${model}`);
+      }
     } catch (err) {
-      setError(err.message);
+      setError(err.message || err);
     }
   };
 
   return (
     <div>
       <form onSubmit={submitPrompt}>
-        <textarea 
-          value={prompt} 
-          onChange={(e) => setPrompt(e.target.value)} 
-          placeholder="Enter your prompt here..." 
+        <label>
+          Model
+          <select ref={modelSelectRef} >
+            <option value="chatgpt">ChatGPT</option>
+            <option value="gemini">Gemini</option>
+          </select>
+        </label>
+
+        <textarea
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          placeholder="Enter your prompt here..."
         />
         <button type="submit">Submit</button>
       </form>
