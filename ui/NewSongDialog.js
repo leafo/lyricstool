@@ -10,14 +10,18 @@ import * as songs from '../songs';
 import * as gemini from '../gemini';
 
 // do any processing of the song data before saving
-async function processSong(song) {
-  const response = await gemini.chunkLyrics(song.lyrics);
+async function processSong(song, beforeSong) {
 
-  if (!response.chunks) {
-    return Promise.reject(new Error('Failed to extract chunks from lyrics'));
+  // update chunks if the lyrics have changed
+  if (!beforeSong || beforeSong.lyrics !== song.lyrics) {
+    const response = await gemini.chunkLyrics(song.lyrics);
+
+    if (!response.chunks) {
+      return Promise.reject(new Error('Failed to extract chunks from lyrics'));
+    }
+
+    song.chunks = response.chunks
   }
-
-  song.chunks = response.chunks
 
   return song
 }
@@ -81,7 +85,7 @@ export function NewSongDialog({onClose}) {
     newSong.createdAt = new Date().toISOString()
     newSong.updatedAt = new Date().toISOString()
 
-    newSong = await processSong(newSong);
+    newSong = await processSong(newSong, null);
 
     const songId = await songs.insertSong(newSong);
     onClose();
@@ -117,7 +121,7 @@ export function EditSongDialog({songId, onClose}) {
         let updatedSong = {...song, ...data};
         updatedSong.updatedAt = new Date().toISOString()
 
-        updatedSong = await processSong(updatedSong);
+        updatedSong = await processSong(updatedSong, song);
         await songs.updateSong(updatedSong)
         onClose();
       };
