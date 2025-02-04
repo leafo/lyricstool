@@ -35,6 +35,10 @@
   }
 }
 
+.emptyMessage {
+  margin: 0;
+}
+
 .songRow {
   background-color: var(--content-bg);
   display: flex;
@@ -51,5 +55,16 @@
 
   p {
     margin: 0;
+  }
+
+  .songTools {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .songMeta {
+    font-size: 12px;
+    opacity: 0.8;
   }
 }
