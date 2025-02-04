@@ -13,7 +13,7 @@ import * as gemini from '../gemini';
 async function processSong(song, beforeSong) {
 
   // update chunks if the lyrics have changed
-  if (!beforeSong || beforeSong.lyrics !== song.lyrics) {
+  if (!beforeSong || beforeSong.lyrics !== song.lyrics || !beforeSong.chunks) {
     const response = await gemini.chunkLyrics(song.lyrics);
 
     if (!response.chunks) {

@@ -64,16 +64,15 @@ function PromptTest() {
   );
 }
 
-
-function App() {
-  const [showSettings, setShowSettings] = useRouteToggle('showSettings');
-
+function MainContent() {
   const routeParams = useRoute(["viewSongId"]);
 
-  return <>
-    <Header />
+  if (routeParams.viewSongId) {
+    return <SongViewer key={routeParams.viewSongId} songId={routeParams.viewSongId} />
+  }
 
-    {routeParams.viewSongId ? <SongViewer songId={routeParams.viewSongId} /> : <SongList />}
+  return <>
+    <SongList />
 
     <details>
       <summary>Prompt Test</summary>
@@ -81,6 +80,15 @@ function App() {
     </details>
 
     <DumpConfig />
+  </>
+}
+
+function App() {
+  const [showSettings, setShowSettings] = useRouteToggle('showSettings');
+
+  return <>
+    <Header />
+    <MainContent />
     {showSettings && <SettingsDialog onClose={() => setShowSettings(false)} />}
   </>;
 }
