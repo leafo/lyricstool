@@ -1,113 +1,17 @@
 
 export const CONFIG_STORE_NAME = 'config';
 
-import { openDatabase } from './database';
+import { IndexedDBStore } from './database';
 import { useState, useEffect } from 'react';
 
-class StoreEventEmitter {
-  constructor() {
-    this.listeners = {};
-  }
-
-  // Subscribe to a config key
-  subscribe(key, callback) {
-    if (!this.listeners[key]) {
-      this.listeners[key] = [];
-    }
-    this.listeners[key].push(callback);
-  }
-
-  // Unsubscribe from a config key
-  unsubscribe(key, callback) {
-    if (this.listeners[key]) {
-      this.listeners[key] = this.listeners[key].filter(cb => cb !== callback);
-    }
-  }
-
-  // Emit an event for a config key
-  emit(key, value) {
-    [key, '*'].forEach(key => {
-      if (this.listeners[key]) {
-        this.listeners[key].forEach(callback => callback(value));
-      }
-    });
-  }
-}
-
-export class IndexedDBStore {
-  constructor(storeName) {
-    this.storeName = storeName;
-    this.eventEmitter = new StoreEventEmitter();
-    this.getDb();
-  }
-
-  async getDb() {
-    if (this.db) return this.db;
-    if (this.loadPromise) return this.loadPromise;
-
-    this.loadPromise = openDatabase();
-    this.db = await this.loadPromise;
-
-    delete this.loadPromise;
-    return this.db;
-  }
-
-  async get(key) {
-    const db = await this.getDb();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction([this.storeName], 'readonly');
-      const store = transaction.objectStore(this.storeName);
-      const request = store.get(key);
-
-      request.onsuccess = (event) => {
-        resolve(event.target.result);
-      };
-
-      request.onerror = (event) => {
-        reject('Get error: ' + event.target.errorCode);
-      };
-    });
+class ConfigStore extends IndexedDBStore {
+  async set(key, value) {
+    return await this.put({ key, value });
   }
 
   async getValue(key) {
     const result = await this.get(key);
-    return result?.value || null;
-  }
-
-  async set(key, value) {
-    const db = await this.getDb();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction([this.storeName], 'readwrite');
-      const store = transaction.objectStore(this.storeName);
-      const request = store.put({ key, value });
-
-      request.onsuccess = () => {
-        this.eventEmitter.emit(key, value);
-        resolve(true);
-      };
-
-      request.onerror = (event) => {
-        reject('Set error: ' + event.target.errorCode);
-      };
-    });
-  }
-
-  async remove(key) {
-    const db = await this.getDb();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction([this.storeName], 'readwrite');
-      const store = transaction.objectStore(this.storeName);
-      const request = store.delete(key);
-
-      request.onsuccess = () => {
-        this.eventEmitter.emit(key, null);
-        resolve(true);
-      };
-
-      request.onerror = (event) => {
-        reject('Remove error: ' + event.target.errorCode);
-      };
-    });
+    return result?.value;
   }
 
   async getFull() {
@@ -132,7 +36,7 @@ export class IndexedDBStore {
   }
 }
 
-export const config = new IndexedDBStore(CONFIG_STORE_NAME);
+export const config = new ConfigStore(CONFIG_STORE_NAME);
 
 export const useFullConfig = () => {
   const [currentConfig, setCurrentConfig] = useState({});

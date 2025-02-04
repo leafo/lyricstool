@@ -6,99 +6,33 @@
 //   chunks: string[]
 // }
 
-
-import { openDatabase } from './database';
-import {useAsync} from './util';
+import { IndexedDBStore } from './database';
+import { useAsync } from './util';
 
 const STORE_NAME = 'songs';
+export const store = new IndexedDBStore(STORE_NAME);
 
-export async function insertSong(song) {
-  const db = await openDatabase();
+export const insertSong = async song => store.add(song);
+export const updateSong = async song => store.put(song);
+export const deleteSong = async id => store.remove(id);
 
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction([STORE_NAME], 'readwrite');
-    const store = transaction.objectStore(STORE_NAME);
-
-    const request = store.add(song);
-
-    request.onsuccess = () => {
-      resolve(request.result);
-    };
-
-    request.onerror = (event) => {
-      reject(new Error(`Failed to insert song: ${event.target.errorCode}`));
-    };
-  });
-}
-
-export async function findSong(id) {
+export const findSong = async id => {
   if (isNaN(parseInt(id, 10))) {
-    return Promise.reject(new Error('Invalid ID: ID must be an integer'));
+    throw new Error('Invalid ID: ID must be an integer');
   }
   id = parseInt(id, 10);
+  const result = await store.get(id);
 
-  const db = await openDatabase();
+  if (result != null) {
+    return result;
+  }
 
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction([STORE_NAME], 'readonly');
-    const store = transaction.objectStore(STORE_NAME);
-
-    const request = store.get(id);
-
-    request.onsuccess = () => {
-      if (request.result != null) {
-        resolve(request.result);
-      } else {
-        reject(new Error(`Failed to find song by id ${id}`));
-      }
-    };
-
-    request.onerror = (event) => {
-      reject(new Error(`Lookup error: ${event.target.errorCode}`));
-    };
-  });
+  throw new Error(`Failed to find song by id ${id}`);
 }
 
-export async function updateSong(song) {
-  const db = await openDatabase();
-
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction([STORE_NAME], 'readwrite');
-    const store = transaction.objectStore(STORE_NAME);
-
-    const request = store.put(song);
-
-    request.onsuccess = () => {
-      resolve(request.result);
-    };
-
-    request.onerror = (event) => {
-      reject(new Error(`Failed to update song: ${event.target.errorCode}`));
-    };
-  });
-}
-
-export async function deleteSong(id) {
-  const db = await openDatabase();
-
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction([STORE_NAME], 'readwrite');
-    const store = transaction.objectStore(STORE_NAME);
-
-    const request = store.delete(id);
-
-    request.onsuccess = () => {
-      resolve();
-    };
-
-    request.onerror = (event) => {
-      reject(new Error(`Failed to delete song: ${event.target.errorCode}`));
-    };
-  });
-}
 
 export async function getSongsOrderedByIdDesc(limit, offset) {
-  const db = await openDatabase();
+  const db = await store.getDb();
 
   return new Promise((resolve, reject) => {
     const transaction = db.transaction([STORE_NAME], 'readonly');
@@ -127,7 +61,8 @@ export async function getSongsOrderedByIdDesc(limit, offset) {
   });
 }
 
-// TODO: this should listen to changes when the song is updated
+// TODO: this should listen to changes when the song is updated via emitter on
+// store
 export function useSong(songId) {
   return useAsync(() => findSong(songId), [songId]);
 }
