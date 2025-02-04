@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { getSongsOrderedByIdDesc } from '../songs';
 
-import { songList, songRow } from './SongList.css';
+import * as css from './SongList.css';
 
 import { useRoute, useRouteToggle, updateRoute } from '../router.js';
 
@@ -20,10 +20,10 @@ const SongRow = ({ song }) => {
     updateRoute({ viewSongId: song.id });
   }, [song.id]);
 
-  return <li className={songRow} onClick={onClick} tabIndex="0" role="button">
+  return <li className={css.songRow} onClick={onClick} tabIndex="0" role="button">
     <h3>{song.title}</h3>
     {song.artist && <p><strong>Artist:</strong> {song.artist}</p>}
-    <p>{song.lyrics}</p>
+    <p className={css.lyrics}>{song.lyrics}</p>
     <button type="button" onClick={() => updateRoute({ editSongId: song.id })}>Edit</button>
   </li>
 }
@@ -47,7 +47,7 @@ export const SongList = () => {
   }, []);
 
   return <>
-    <div className={songList}>
+    <div className={css.songList}>
       <nav>
         <h2>Songs List</h2>
         <button onClick={() => setShowNewSongDialog(true)}>New Song...</button>
