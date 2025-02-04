@@ -5,7 +5,7 @@ import React from 'react';
 import { useConfig } from '../config.js';
 import { Dialog } from './Dialog';
 
-import { exportToJSON } from '../export.js';
+import { exportToJSON, importFromJSON } from '../export.js';
 
 function ConfigInput({ref, name, configName})  {
   const inputRef = React.useRef();
@@ -30,8 +30,8 @@ function downloadExport(e) {
   e.preventDefault();
 
   return (async () => {
-    const exportData = await exportToJSON();
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], {type: 'application/json'});
+    const exportJSON = await exportToJSON();
+    const blob = new Blob([exportJSON], {type: 'application/json'});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -41,6 +41,42 @@ function downloadExport(e) {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   })();
+}
+
+function importExport(e) {
+  e.preventDefault();
+
+  return (async () => {
+    const {contents, filename} = await new Promise((resolve, reject) => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+
+      input.onchange = e => {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+
+        reader.onload = event => {
+          resolve({
+            contents: event.target.result,
+            filename: file.name
+          });
+        };
+
+        reader.onerror = error => reject(error);
+        reader.readAsText(file);
+      };
+
+      input.click();
+    })
+
+    await importFromJSON(contents)
+    console.log(`Imported completed from ${filename}`);
+    window.location.reload();
+  })().catch(err => {
+    console.error(err);
+    alert(`Failed to import from file: ${err.message}`);
+  });
 }
 
 export function SettingsDialog({onClose}) {
@@ -83,8 +119,14 @@ export function SettingsDialog({onClose}) {
     </form>
 
     <details>
-      <summary>Backup Data...</summary>
+      <summary>Backup data...</summary>
       <button type="button" onClick={downloadExport}>Download Export</button>
+    </details>
+
+    <details>
+      <summary>Import backup...</summary>
+      <p><strong>Warning:</strong> This will delete all existing data in the app and replace it with the backup data.</p>
+      <button type="button" onClick={importExport}>Import from file (<code>lyricstool-xxxxxx.json</code>)</button>
     </details>
   </Dialog>
 }

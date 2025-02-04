@@ -3,7 +3,7 @@ export const DB_NAME = 'lyricsTool';
 
 let db;
 
-const MIGRATIONS = [
+export const MIGRATIONS = [
   (db) => {
     db.createObjectStore("config", { keyPath: 'key' });
   },
@@ -22,12 +22,27 @@ export function openDatabase() {
 
       for (let i = event.oldVersion; i < event.newVersion; i++) {
         console.log(`Migrating from ${i} to ${i + 1}`);
-        MIGRATIONS[i](db, transaction);
+        const migration = MIGRATIONS[i];
+
+        if (!migration) {
+          reject(new Error(`Migration ${i} is not defined`));
+        }
+
+        migration(db, transaction);
       }
     };
 
     request.onsuccess = (event) => {
       const db = event.target.result;
+
+      db.onversionchange = event => {
+        console.debug("Database version changed", event);
+        // TODO: this happens when the database deletion request happens, not
+        // sure when else it would happen right now. We close the connection to
+        // prevent blocking the delete
+        db.close();
+      };
+
       resolve(db);
     };
 
@@ -36,6 +51,24 @@ export function openDatabase() {
     };
   });
 }
+
+// WARNING: This will delete all data in the database
+// only call this after you've exported your data :)
+export function resetAll() {
+  return new Promise((resolve, reject) => {
+    const deleteRequest = indexedDB.deleteDatabase(DB_NAME);
+    deleteRequest.onsuccess = () => {
+      resolve(openDatabase()) // resolve with the new database
+    };
+    deleteRequest.onerror = () => {
+      reject(new Error("Failed to delete database"));
+    };
+    deleteRequest.onblocked = () => {
+      reject(new Error("Failed to delete database: Database is blocked"));
+    };
+  });
+}
+
 
 export class StoreEventEmitter {
   constructor() {
