@@ -8,6 +8,7 @@
 
 import { IndexedDBStore } from './database';
 import { useAsync } from './util';
+import React from 'react';
 
 const STORE_NAME = 'songs';
 export const store = new IndexedDBStore(STORE_NAME);
@@ -61,10 +62,26 @@ export async function getSongsOrderedByIdDesc(limit, offset) {
   });
 }
 
-// TODO: this should listen to changes when the song is updated via emitter on
-// store
+
+// listens to updates to the database to increment the version
+// this is a lazy way to track if the store has updated at all to trigger
+// re-renders
+export function useDependency() {
+  const [version, setVersion] = React.useState(0);
+
+  React.useEffect(() => {
+    store.eventEmitter.subscribe('*', () => setVersion(v => v + 1));
+    return () => {
+      store.eventEmitter.unsubscribe('*', () => setVersion(v => v + 1));
+    };
+  }, []);
+
+  return version;
+}
+
 export function useSong(songId) {
-  return useAsync(() => findSong(songId), [songId]);
+  const dbVersion = useDependency();
+  return useAsync(() => findSong(songId), [songId, dbVersion]);
 }
 
 
