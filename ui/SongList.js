@@ -6,36 +6,7 @@ import * as css from './SongList.css';
 
 import { useRoute, useRouteToggle, updateRoute } from '../router.js';
 import { NewSongDialog, EditSongDialog } from './NewSongDialog.js';
-import { useAsync } from '../util.js';
-
-const formatTimestamp = (timestamp) => {
-  if (!timestamp) return '';
-  const date = new Date(timestamp);
-  const now = new Date();
-
-  const isToday = date.toDateString() === now.toDateString();
-  const isSameYear = date.getFullYear() === now.getFullYear();
-
-  const options = {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  };
-
-  if (!isSameYear) {
-    options.year = 'numeric';
-  }
-
-  if (isToday) {
-    return date.toLocaleString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  }
-
-  return date.toLocaleString('en-US', options);
-};
+import { useAsync, formatTimestamp } from '../util.js';
 
 const SongRow = ({ song }) => {
   const onClick = React.useCallback(e => {

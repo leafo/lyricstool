@@ -1,17 +1,17 @@
 
 import React from 'react';
-import './NewSongDialog.css';
+import css from './NewSongDialog.css';
 
-import {Dialog} from './Dialog';
-import {useAsync} from '../util';
+import {Dialog} from './Dialog.js';
+import {useAsync} from '../util.js';
 
-import * as songs from '../songs';
+import * as songs from '../songs.js';
+import * as gemini from '../gemini.js';
 
-import * as gemini from '../gemini';
+import {formatTimestamp} from '../util.js';
 
 // do any processing of the song data before saving
 async function processSong(song, beforeSong) {
-
   // update chunks if the lyrics have changed
   if (!beforeSong || beforeSong.lyrics !== song.lyrics || !beforeSong.chunks) {
     const response = await gemini.chunkLyrics(song.lyrics);
@@ -25,6 +25,7 @@ async function processSong(song, beforeSong) {
 
   return song
 }
+
 
 export function SongForm({ref, onSubmit, song, loading, submitLabel}) {
   const formRef = React.useRef();
@@ -61,6 +62,46 @@ export function SongForm({ref, onSubmit, song, loading, submitLabel}) {
       Notes
       <textarea name="notes" rows="4" placeholder="Optional" defaultValue={song?.notes || ''}></textarea>
     </label>
+
+    {song && <details>
+      <summary>Metadata</summary>
+      <table className={css.metadataTable}>
+        <tbody>
+          <tr>
+            <td>ID</td>
+            <td>{song.id ? <code>{song.id}</code> : <em>empty</em>}</td>
+          </tr>
+          <tr>
+            <td>Created</td>
+            <td title={song.createdAt}>{song.createdAt ? formatTimestamp(song.createdAt) : <em>not set</em>}</td>
+          </tr>
+          <tr>
+            <td>Last Modified</td>
+            <td title={song.updatedAt}>{song.updatedAt ? formatTimestamp(song.updatedAt) : <em>not set</em>}</td>
+          </tr>
+          <tr>
+            <td>Chunks</td>
+            <td>
+              {song.chunks ? (
+                <>
+                  <code>{song.chunks.length} chunks</code>
+                  <details>
+                    <summary>View chunks</summary>
+                    <ol>
+                      {song.chunks.map((chunk, i) => (
+                        <li key={i}>{chunk}</li>
+                      ))}
+                    </ol>
+                  </details>
+                </>
+              ) : (
+                <em>none</em>
+              )}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </details>}
 
     <div>
       <button type="submit" disabled={loading}>{submitLabel || 'Save'}</button>

@@ -1,5 +1,3 @@
-
-
 import React from 'react';
 
 export function useAsync(fn, inputs) {
@@ -33,3 +31,32 @@ export function useAsync(fn, inputs) {
 
   return [result, error, loading];
 }
+
+export const formatTimestamp = (timestamp) => {
+  if (!timestamp) return '';
+  const date = new Date(timestamp);
+  const now = new Date();
+
+  const isToday = date.toDateString() === now.toDateString();
+  const isSameYear = date.getFullYear() === now.getFullYear();
+
+  const options = {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  };
+
+  if (!isSameYear) {
+    options.year = 'numeric';
+  }
+
+  if (isToday) {
+    return date.toLocaleString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }
+
+  return date.toLocaleString('en-US', options);
+};

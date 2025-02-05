@@ -1,0 +1,26 @@
+
+.metadataTable {
+  border-collapse: collapse;
+  margin: var(--gap) 0;
+  border: 1px solid var(--border-color);
+
+  td {
+    padding: 4px var(--padding);
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  td:first-child {
+    font-weight: bold;
+    color: #666;
+    width: 120px;
+  }
+
+  code {
+    background: #f0f0f0;
+    padding: 2px 4px;
+    border-radius: var(--border-radius);
+    font-size: 12px;
+  }
+}
+
+

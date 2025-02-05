@@ -4,6 +4,8 @@ import { EditSongDialog } from './NewSongDialog.js';
 import css from './SongViewer.css';
 import { useRoute, updateRoute } from '../router.js';
 
+import { chunkLyrics, hideWords } from '../lyrics.js';
+
 import * as songs from '../songs.js';
 
 const SongScrubber = ({ value = 0, min, max, onChange }) => {
@@ -21,27 +23,47 @@ const SongScrubber = ({ value = 0, min, max, onChange }) => {
   />
 };
 
-const SongContent = ({ song, progress }) => {
-  const chunks = song.chunks || []
 
+const SongChunk = ({ chunk }) => {
+  const ref = React.useRef();
+
+  React.useEffect(() => {
+    ref.current?.scrollIntoView({ behavior: 'smooth' });
+  }, []);
+
+  return <li ref={ref} className={css.songChunk}>
+    {hideWords(chunk)}
+  </li>
+}
+
+const SongContent = ({ chunks, progress }) => {
   return <ul className={css.songContent}>
-    {chunks.slice(0, progress).map((chunk, idx) => <li className={css.songChunk} key={idx}>
-      {chunk}
-    </li>)}
+    {chunks.slice(0, progress).map((chunk, idx) =>
+      <SongChunk key={idx} chunk={chunk} />
+    )}
   </ul>
 }
 
 const SongViewerContent = ({song, error}) => {
   const [visibleProgress, setVisibleProgress] = React.useState(0);
 
+  const chunks = React.useMemo(() => {
+    if (!song) {
+      return []
+    }
+
+    // if (song.chunks) {
+    //   return song.chunks
+    // }
+
+    return chunkLyrics(song.lyrics)
+  }, [song]);
+
   if (error) {
     return <p>{error.toString()}</p>
   }
 
   if (song) {
-    // TODO: calculate chunks if not present
-    const chunks = song.chunks || [];
-
     return <div className={css.songViewer}>
       <div className={css.songHeader}>
         <h1>{song.title}</h1>
@@ -50,7 +72,7 @@ const SongViewerContent = ({song, error}) => {
         </div>
       </div>
 
-      <SongContent song={song} progress={visibleProgress} />
+      <SongContent chunks={chunks} progress={visibleProgress} />
 
       <SongScrubber
         min={0}

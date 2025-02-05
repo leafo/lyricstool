@@ -22,6 +22,9 @@
     display: flex;
     gap: 5px;
     margin-left: auto;
+    button {
+      white-space: nowrap;
+    }
   }
 }
 
@@ -43,8 +46,9 @@
   padding: 0;
   margin: 0;
   list-style: none;
+  white-space: pre-wrap;
+  font-family: monospace;
 }
-
 
 .songScubber {
   width: 100%;
