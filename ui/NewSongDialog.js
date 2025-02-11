@@ -13,15 +13,16 @@ import {formatTimestamp} from '../util.js';
 // do any processing of the song data before saving
 async function processSong(song, beforeSong) {
   // update chunks if the lyrics have changed
-  if (!beforeSong || beforeSong.lyrics !== song.lyrics || !beforeSong.chunks) {
-    const response = await gemini.chunkLyrics(song.lyrics);
+  // TODO: disabled for now, probalby not worth it
+  // if (!beforeSong || beforeSong.lyrics !== song.lyrics || !beforeSong.chunks) {
+  //   const response = await gemini.chunkLyrics(song.lyrics);
 
-    if (!response.chunks) {
-      return Promise.reject(new Error('Failed to extract chunks from lyrics'));
-    }
+  //   if (!response.chunks) {
+  //     return Promise.reject(new Error('Failed to extract chunks from lyrics'));
+  //   }
 
-    song.chunks = response.chunks
-  }
+  //   song.chunks = response.chunks
+  // }
 
   return song
 }
