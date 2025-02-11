@@ -10,17 +10,13 @@ import { useAsync, formatTimestamp } from '../util.js';
 
 const SongRow = ({ song }) => {
   const onClick = React.useCallback(e => {
-    const btn = e.target.closest('button')
-    if (btn) {
-      return;
-    }
-
     e.preventDefault();
     e.stopPropagation();
     updateRoute({ viewSongId: song.id });
   }, [song.id]);
 
-  return <li className={css.songRow} onClick={onClick} tabIndex="0" role="button">
+  return <li className={css.songRow}>
+    <button className={css.songRowButton} type="button" onClick={onClick}>View {song.title}</button>
     <h3>{song.title}</h3>
     {song.artist && <p><strong>Artist:</strong> {song.artist}</p>}
     <p className={css.lyrics}>{song.lyrics}</p>

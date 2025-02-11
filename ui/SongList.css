@@ -48,6 +48,7 @@
   padding: 10px;
   border: 1px solid var(--border-color);
   border-radius: var(--border-radius);
+  position: relative;
 
   h3 {
     margin: 0
@@ -61,10 +62,25 @@
     display: flex;
     gap: 10px;
     align-items: center;
+    position: relative;
+    z-index: 2;
   }
 
   .songMeta {
     font-size: 12px;
     opacity: 0.8;
   }
+}
+
+.songRowButton {
+  background: transparent;
+  border: 0;
+  color: transparent;
+  box-shadow: none;
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1;
 }
