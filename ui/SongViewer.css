@@ -39,6 +39,7 @@
   overflow: hidden;
 
   ul {
+    line-height: 1.5;
     flex: 1;
     margin: 0;
     padding: var(--padding);
