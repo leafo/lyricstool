@@ -24,43 +24,86 @@ const SongScrubber = ({ value = 0, min, max, onChange }) => {
 };
 
 
-const SongChunk = ({ chunk }) => {
+const SongChunk = ({ chunk, hintLevel }) => {
   const ref = React.useRef();
 
   React.useEffect(() => {
     ref.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
 
+  if (hintLevel) {
+    chunk = hideWords(chunk, hintLevel-1);
+  }
+
   return <li ref={ref} className={css.songChunk}>
-    {hideWords(chunk)}
+    {chunk}
   </li>
 }
 
-const SongContent = ({ chunks, progress, goNext, goPrev }) => {
+const SongContent = ({ chunks, progress, goNext, goPrev, onHint, hintLevel }) => {
+  hintLevel ||= 0;
+
   return <div className={css.songContent}>
-    <button onClick={goNext} className={css.nextButton}>Next</button>
-    <button onClick={goPrev} className={css.prevButton}>Back</button>
+    <div className={css.buttonOverlay}>
+      <button disabled={progress === 0} onClick={goPrev} className={css.prevButton}>Prev</button>
+      <button disabled={progress === chunks.length} onClick={goNext} className={css.nextButton}>Next</button>
+
+      <button onClick={onHint} className={css.hintButton}>Hint</button>
+    </div>
+
     <ul>
-      {chunks.slice(0, progress).map((chunk, idx) =>
-        <SongChunk key={idx} chunk={chunk} />
-      )}
+      {chunks.slice(0, progress + 1).map((chunk, idx) => {
+        if (idx >= progress) {
+          if (hintLevel > 0) {
+            return <SongChunk key={idx} chunk={chunk} hintLevel={hintLevel} />
+          } else {
+            return null
+          }
+        }
+
+        return <SongChunk key={idx} chunk={chunk} />
+      })}
     </ul>
   </div>
 }
 
-const SongViewerContent = ({song, error}) => {
-  const [visibleProgress, setVisibleProgress] = React.useState(0);
+
+const updateViewerState = (state, action) => {
+  switch (action.type) {
+    case "incrementProgress":
+      return {
+        progress: Math.min(state.progress + 1, action.max),
+        hintLevel: 0
+      };
+    case "decrementProgress":
+      return {
+        progress: Math.max(state.progress - 1, 0),
+        hintLevel: 0
+      };
+    case "setProgress":
+      return {
+        progress: action.progress,
+        hintLevel: 0
+      };
+    case "incrementHint":
+      return {
+        ...state,
+        hintLevel: state.hintLevel + 1
+      };
+    default:
+      return state;
+  }
+};
+
+const SongViewerContent = ({ song, error }) => {
+  const [state, dispatch] = React.useReducer(updateViewerState, { progress: 0, hintLevel: 0 });
 
   const chunks = React.useMemo(() => {
     if (!song) {
       return []
     }
 
-    // if (song.chunks) {
-    //   return song.chunks
-    // }
-
-    return chunkLyrics(song.lyrics)
+    return chunkLyrics(song.lyrics);
   }, [song]);
 
   if (error) {
@@ -77,16 +120,18 @@ const SongViewerContent = ({song, error}) => {
       </div>
 
       <SongContent
-        goNext={() => setVisibleProgress(prev => Math.min(prev + 1, chunks.length))}
-        goPrev={() => setVisibleProgress(prev => Math.max(prev - 1, 0))}
+        goNext={() => dispatch({ type: "incrementProgress", max: chunks.length })}
+        goPrev={() => dispatch({ type: "decrementProgress" })}
+        onHint={() => dispatch({ type: "incrementHint" })}
         chunks={chunks}
-        progress={visibleProgress} />
+        hintLevel={state.hintLevel}
+        progress={state.progress} />
 
       <SongScrubber
         min={0}
         max={chunks.length}
-        value={visibleProgress}
-        onChange={progress => setVisibleProgress(progress)}
+        value={state.progress}
+        onChange={(progress) => dispatch({ type: "setProgress", progress })}
       />
     </div>
   }
