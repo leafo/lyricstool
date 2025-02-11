@@ -1,0 +1,15 @@
+{
+  "short_name": "LyricsTool",
+  "name": "LyricsTool",
+  "icons": [
+    {
+      "src": "./icon600.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#FFEEDD",
+  "theme_color": "#323236"
+}

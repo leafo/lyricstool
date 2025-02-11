@@ -10,5 +10,10 @@ watch:
 dist:
 	mkdir -p dist
 	npx esbuild main.js --bundle --outfile=dist/bundle.js --loader:.js=jsx --loader:.css=local-css --minify
-	cp index.html dist/
+	cp index.html manifest.json icon600.png dist/
+
+deploy: dist
+	rsync -avz dist/ leaf@leafo.net:www/lyricstool/
+
+
 

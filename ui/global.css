@@ -1,10 +1,14 @@
 
 :root {
   --border-radius: 4px;
-  --border-color: #ccc;
-  --body-bg: #E7E7E7;
+  --border-color: #9F9FA0;
+  --body-bg: #FFEEDD;
+
   --header-bg: white;
   --content-bg: white;
+
+  --button-bg: #323236;
+  --button-fg: white;
   --padding: 10px; /* padding within container elements and page margins */
   --gap: 10px; /* default gap between UI elements */
 }
@@ -26,15 +30,14 @@ dialog::backdrop {
 }
 
 button {
-  color: white;
+  color: var(--button-fg);
   font-weight: bold;
   font-size: 14px;
   border: 0;
-  background: #727290;
+  background: var(--button-bg);
   padding: 5px 10px;
   border-radius: 4px;
-  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.2);
-  border: 1px solid #727290;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.3) , 0 0 0 1px var(--button-bg);
   cursor: pointer;
   text-decoration: none;
 
