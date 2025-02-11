@@ -1,24 +1,29 @@
 
 // convert single text block of lyrics into an array of chunks
-export function chunkLyrics(lyrics) {
+export function chunkLyrics(lyrics, maxLines=2) {
   // Split into lines and filter empty lines
-  const lines = lyrics.split('\n').filter(line => line.trim());
+  const lines = lyrics.split('\n').map(line => line.trim());
   const chunks = [];
   let currentChunk = [];
 
+  const pushChunk = () => {
+    if (currentChunk.length > 0) {
+      chunks.push(currentChunk.join('\n'));
+      currentChunk = [];
+    }
+  }
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    currentChunk.push(line);
+    if (line) {
+      currentChunk.push(line);
+    }
 
-    // Start new chunk on these conditions:
-    // - Current chunk has 2+ lines
-    // - We're at a blank line
-    // - We're at the last line
-    if (
-      currentChunk.length >= 2 ||
-      (i < lines.length - 1 && lines[i + 1].trim() === '') ||
-      i === lines.length - 1
-    ) {
+    // close out the chunk if:
+    // - we've reached the max lines
+    // - there's a manual line break
+    if (currentChunk.length >= maxLines || line === '') {
+      pushChunk();
       if (currentChunk.length > 0) {
         chunks.push(currentChunk.join('\n'));
         currentChunk = [];
@@ -26,10 +31,8 @@ export function chunkLyrics(lyrics) {
     }
   }
 
-  // Add any remaining lines
-  if (currentChunk.length > 0) {
-    chunks.push(currentChunk.join('\n'));
-  }
+  // add remaining lines
+  pushChunk();
 
   return chunks;
 }
