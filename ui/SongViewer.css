@@ -32,14 +32,20 @@
   background-color: var(--content-bg);
   border: 1px solid var(--border-color);
   border-radius: var(--border-radius);
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin: 0;
-  padding: var(--padding);
   flex: 1;
-  overflow-y: auto;
+  display: flex;
+  position: relative;
   min-height: 0;
+
+  ul {
+    margin: 0;
+    padding: var(--padding);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+    max-height: 100%;
+  }
 }
 
 .songChunk {
@@ -53,3 +59,27 @@
 .songScubber {
   width: 100%;
 }
+
+.nextButton,
+.prevButton {
+  opacity: 0.5;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  background: transparent;
+  border: 0;
+  color: transparent;
+  box-shadow: none;
+}
+
+.nextButton {
+  right: 0;
+}
+
+.prevButton {
+  left: 0;
+}
+
+
+

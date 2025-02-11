@@ -36,12 +36,16 @@ const SongChunk = ({ chunk }) => {
   </li>
 }
 
-const SongContent = ({ chunks, progress }) => {
-  return <ul className={css.songContent}>
-    {chunks.slice(0, progress).map((chunk, idx) =>
-      <SongChunk key={idx} chunk={chunk} />
-    )}
-  </ul>
+const SongContent = ({ chunks, progress, goNext, goPrev }) => {
+  return <div className={css.songContent}>
+    <button onClick={goNext} className={css.nextButton}>Next</button>
+    <button onClick={goPrev} className={css.prevButton}>Back</button>
+    <ul>
+      {chunks.slice(0, progress).map((chunk, idx) =>
+        <SongChunk key={idx} chunk={chunk} />
+      )}
+    </ul>
+  </div>
 }
 
 const SongViewerContent = ({song, error}) => {
@@ -72,7 +76,11 @@ const SongViewerContent = ({song, error}) => {
         </div>
       </div>
 
-      <SongContent chunks={chunks} progress={visibleProgress} />
+      <SongContent
+        goNext={() => setVisibleProgress(prev => Math.min(prev + 1, chunks.length))}
+        goPrev={() => setVisibleProgress(prev => Math.max(prev - 1, 0))}
+        chunks={chunks}
+        progress={visibleProgress} />
 
       <SongScrubber
         min={0}

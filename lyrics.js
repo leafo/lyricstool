@@ -5,7 +5,7 @@ export function chunkLyrics(lyrics) {
   const lines = lyrics.split('\n').filter(line => line.trim());
   const chunks = [];
   let currentChunk = [];
-  
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     currentChunk.push(line);
@@ -15,7 +15,7 @@ export function chunkLyrics(lyrics) {
     // - We're at a blank line
     // - We're at the last line
     if (
-      currentChunk.length >= 2 || 
+      currentChunk.length >= 2 ||
       (i < lines.length - 1 && lines[i + 1].trim() === '') ||
       i === lines.length - 1
     ) {
@@ -28,7 +28,7 @@ export function chunkLyrics(lyrics) {
 
   // Add any remaining lines
   if (currentChunk.length > 0) {
-    chunks.push(currentChunk.join('\n')); 
+    chunks.push(currentChunk.join('\n'));
   }
 
   return chunks;
