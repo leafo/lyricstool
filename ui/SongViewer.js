@@ -10,6 +10,7 @@ import * as songs from '../songs.js';
 
 const SongScrubber = ({ value = 0, min, max, onChange }) => {
   return <input
+    className={css.songScrubber}
     type="range"
     min={min}
     max={max}
@@ -19,7 +20,6 @@ const SongScrubber = ({ value = 0, min, max, onChange }) => {
         onChange(parseFloat(e.target.value))
       }
     }}
-    className={css.songScubber}
   />
 };
 
