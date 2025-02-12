@@ -40,7 +40,7 @@ const SongChunk = ({ chunk, hintLevel }) => {
   </li>
 }
 
-const SongContent = ({ chunks, progress, goNext, goPrev, onHint, hintLevel }) => {
+const SongContent = ({ chunks, progress, goNext, goPrev, goHint, hintLevel }) => {
   hintLevel ||= 0;
 
   return <div className={css.songContent}>
@@ -48,7 +48,7 @@ const SongContent = ({ chunks, progress, goNext, goPrev, onHint, hintLevel }) =>
       <button disabled={progress === 0} onClick={goPrev} className={css.prevButton}>Prev</button>
       <button disabled={progress === chunks.length} onClick={goNext} className={css.nextButton}>Next</button>
 
-      <button onClick={onHint} className={css.hintButton}>Hint</button>
+      <button onClick={goHint} className={css.hintButton}>Hint</button>
     </div>
 
     <ul>
@@ -76,10 +76,17 @@ const updateViewerState = (state, action) => {
         hintLevel: 0
       };
     case "decrementProgress":
-      return {
-        progress: Math.max(state.progress - 1, 0),
-        hintLevel: 0
-      };
+      if (state.hintLevel > 0) {
+        return {
+          ...state,
+          hintLevel: 0
+        };
+      } else {
+        return {
+          progress: Math.max(state.progress - 1, 0),
+          hintLevel: 0
+        };
+      }
     case "setProgress":
       return {
         progress: action.progress,
@@ -106,6 +113,14 @@ const SongViewerContent = ({ song, error }) => {
     return chunkLyrics(song.lyrics);
   }, [song]);
 
+  const songActions = React.useMemo(() => {
+    return {
+      goNext: () => dispatch({ type: "incrementProgress", max: chunks.length }),
+      goPrev: () => dispatch({ type: "decrementProgress" }),
+      goHint: () => dispatch({ type: "incrementHint" }),
+    };
+  }, [chunks.length, dispatch]);
+
   if (error) {
     return <p>{error.toString()}</p>
   }
@@ -115,14 +130,12 @@ const SongViewerContent = ({ song, error }) => {
       <div className={css.songHeader}>
         <h1>{song.title}</h1>
         <div className={css.buttons}>
-          <button type="button" onClick={() => updateRoute({ editSongId: song.id })}>Edit Song</button>
+          <button type="button" onClick={() => updateRoute({ editSongId: song.id })}>Edit</button>
         </div>
       </div>
 
       <SongContent
-        goNext={() => dispatch({ type: "incrementProgress", max: chunks.length })}
-        goPrev={() => dispatch({ type: "decrementProgress" })}
-        onHint={() => dispatch({ type: "incrementHint" })}
+        {...songActions}
         chunks={chunks}
         hintLevel={state.hintLevel}
         progress={state.progress} />
