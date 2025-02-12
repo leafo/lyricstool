@@ -27,6 +27,27 @@ async function processSong(song, beforeSong) {
   return song
 }
 
+async function ocrFile() {
+  return new Promise((resolve, reject) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+
+    input.onchange = async e => {
+      const file = e.target.files[0];
+      if (!file) {
+        reject(new Error("No file selected for OCR.")); // Reject if no file
+        return;
+      }
+
+      const ocrResult = await gemini.ocrLyrics(file);
+      resolve(ocrResult); // Resolve with ocrResult
+    };
+
+    input.click();
+  });
+}
+
 
 export function SongForm({ref, onSubmit, song, loading, submitLabel}) {
   const formRef = React.useRef();
