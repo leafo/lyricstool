@@ -2,7 +2,6 @@
 import {header, settingsToggle} from './Header.css';
 import React from 'react';
 
-import { useConfig } from '../config.js';
 import { useRoute, useRouteToggle, setRoute } from '../router.js';
 
 export function Header() {

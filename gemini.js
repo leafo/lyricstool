@@ -20,7 +20,7 @@ const OCR_LYRICS_RESPONSE_SCHEMA = {
   properties: {
     lyrics: {
       type: "string",
-      description: "The lyrics extracted from the image. Only the lyrics, no additional text that is not a lyric in the song. Separate logical sections with a an empty line."
+      description: "The lyrics extracted from the image. Only the lyrics text should be included, no additional text that is not a lyric like section labels. Separate logical sections with a an empty line."
     },
     title: {
       type: "string",
@@ -67,7 +67,7 @@ export async function ocrLyrics(file) {
       {
         parts: [
           {
-            text: "Extract the lyrics, song title, and chord progression if available from the image. Return the title and notes only if they are present in the image. Focus on accurately extracting lyrics. ",
+            text: "Extract the lyrics, song title, and chord progression if available from the image. Return the title and notes only if they are present in the image. Focus on accurately extracting lyrics. Only include lyrics that are to be sung and not any section labels.",
           },
           {
             inlineData: {

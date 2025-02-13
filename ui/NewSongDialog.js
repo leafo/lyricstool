@@ -8,6 +8,8 @@ import {useAsync} from '../util.js';
 import * as songs from '../songs.js';
 import * as gemini from '../gemini.js';
 
+import { useConfig } from '../config.js';
+
 import {formatTimestamp} from '../util.js';
 
 // do any processing of the song data before saving
@@ -27,7 +29,7 @@ async function processSong(song, beforeSong) {
   return song
 }
 
-async function ocrFile() {
+async function chooseImage() {
   return new Promise((resolve, reject) => {
     const input = document.createElement('input');
     input.type = 'file';
@@ -36,16 +38,54 @@ async function ocrFile() {
     input.onchange = async e => {
       const file = e.target.files[0];
       if (!file) {
-        reject(new Error("No file selected for OCR.")); // Reject if no file
-        return;
+        reject(new Error("No file selected"))
+        return
       }
 
-      const ocrResult = await gemini.ocrLyrics(file);
-      resolve(ocrResult); // Resolve with ocrResult
+      resolve(file);
     };
 
     input.click();
-  });
+  })
+}
+
+
+export function OcrButton({onSuccess}) {
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState(null);
+
+  const geminiApiKey = useConfig("gemini_api_key");
+
+  if (!geminiApiKey) {
+    return null
+  }
+
+  const handleClick = async () => {
+    setError(null); // Clear previous error
+
+    chooseImage().then(async file => {
+      setLoading(true);
+
+      try {
+        const ocrResult = await gemini.ocrLyrics(file);
+        onSuccess(ocrResult);
+      } catch (err) {
+        setError(err.message || "OCR failed");
+        console.error("OCR Error:", err);
+      } finally {
+        setLoading(false);
+      }
+    });
+  };
+
+  return (
+    <div>
+      <button type="button" onClick={handleClick} disabled={loading}>
+        {loading ? "Loading..." : "OCR Import..."}
+      </button>
+      {error && <div className="error">{error}</div>}
+    </div>
+  );
 }
 
 
@@ -65,6 +105,24 @@ export function SongForm({ref, onSubmit, song, loading, submitLabel}) {
   }));
 
   return <form ref={formRef} onSubmit={onSubmit}>
+    <OcrButton onSuccess={res => {
+      const form = formRef.current;
+      if (form) {
+        if (res.title) {
+          form.querySelector('input[name="title"]').value = res.title;
+        }
+        if (res.artist) {
+          form.querySelector('input[name="artist"]').value = res.artist;
+        }
+        if (res.lyrics) {
+          form.querySelector('textarea[name="lyrics"]').value = res.lyrics;
+        }
+        if (res.notes) {
+          form.querySelector('textarea[name="notes"]').value = res.notes;
+        }
+      }
+    }} />
+
     <label>
       Title
       <input type="text" name="title" defaultValue={song?.title || ''} required />
