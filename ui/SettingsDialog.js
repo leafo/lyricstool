@@ -7,23 +7,32 @@ import { Dialog } from './Dialog';
 
 import { exportToJSON, importFromJSON } from '../export.js';
 
-function ConfigInput({ref, name, configName})  {
+function ConfigInput({ref, name, configName, ...inputProps})  {
   const inputRef = React.useRef();
-  const [apiKey, setApiKey] = useConfig(configName || name, (value) => {
+  const [configValue, setConfigValue, loading] = useConfig(configName || name, (value, isInitial) => {
     const input = inputRef.current;
-    if (document.activeElement !== input) {
-      input.value = value || '';
+    if (isInitial || document.activeElement !== input) {
+      input.value = value ?? '';
     }
   });
 
   React.useImperativeHandle(ref, () => ({
     save() {
-      const value = inputRef.current.value;
-      setApiKey(value);
+      let value = inputRef.current.value;
+
+      if (value == "") {
+        value = null;
+      }
+
+      if (value === configValue) {
+        return;
+      }
+
+      setConfigValue(value);
     }
   }));
 
-  return <input ref={inputRef} name={name} defaultValue={apiKey || ''} />
+  return <input ref={inputRef} name={name} {...inputProps} />
 }
 
 function downloadExport(e) {
@@ -104,6 +113,10 @@ export function SettingsDialog({onClose}) {
   return <Dialog ref={dialogRef} onClose={onClose}>
     <h2>Settings</h2>
     <form onSubmit={handleSave}>
+      <label>
+        Min Hint
+        <ConfigInput ref={formRefs.minHint} name="min_hint" type="number" min="0" max="5" step="1" />
+      </label>
       <label>
         OpenAI API Key
         <ConfigInput ref={formRefs.openAiApiKey} name="openai_api_key" />

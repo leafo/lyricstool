@@ -62,16 +62,21 @@ export const useFullConfig = () => {
 };
 
 export const useConfig = (key, callback) => {
+  const [loading, setLoading] = useState(true);
   const [currentValue, setConfigValue] = useState(null);
 
   useEffect(() => {
     const fetchConfig = async () => {
+      const isInitial = loading;
+
       const value = await config.getValue(key);
+      setLoading(false);
+
       if (value !== currentValue) {
         setConfigValue(value);
 
         if (callback) {
-          callback(value);
+          callback(value, isInitial);
         }
       }
     };
@@ -90,7 +95,7 @@ export const useConfig = (key, callback) => {
     return await config.set(key, value);
   };
 
-  return [currentValue, setConfig];
+  return [currentValue, setConfig, loading];
 };
 
 

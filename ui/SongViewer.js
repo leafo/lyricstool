@@ -5,6 +5,7 @@ import css from './SongViewer.css';
 import { useRoute, updateRoute } from '../router.js';
 
 import { chunkLyrics, hideWords } from '../lyrics.js';
+import { useConfig } from '../config.js';
 
 import * as songs from '../songs.js';
 
@@ -103,6 +104,7 @@ const updateViewerState = (state, action) => {
 };
 
 const SongViewerContent = ({ song, error }) => {
+  const [minHint] = useConfig("min_hint");
   const [state, dispatch] = React.useReducer(updateViewerState, { progress: 0, hintLevel: 0 });
 
   const chunks = React.useMemo(() => {
@@ -137,7 +139,7 @@ const SongViewerContent = ({ song, error }) => {
       <SongContent
         {...songActions}
         chunks={chunks}
-        hintLevel={state.hintLevel}
+        hintLevel={state.hintLevel + (minHint || 0)}
         progress={state.progress} />
 
       <SongScrubber
