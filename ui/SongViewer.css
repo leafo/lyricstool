@@ -72,7 +72,7 @@
 
   display: grid;
   grid-template-columns: 1fr 1fr;
-  grid-template-rows: 1fr 1fr;
+  grid-template-rows: 1fr 1fr 2fr;
   gap: 10px;
 
   * {
@@ -84,15 +84,66 @@
   }
 
   .prevButton {
-    grid-area: 2 / 1 / 3 / 2;
+    grid-area: 3 / 1 / 4 / 2;
   }
 
   .nextButton {
-    grid-area: 2 / 2 / 3 / 3;
+    grid-area: 3 / 2 / 4 / 3;
   }
 
   .hintButton {
     grid-area: 1 / 1 / 2 / 3;
+  }
+
+  .revealWordButton {
+    grid-area: 2 / 1 / 2 / 3;
+  }
+}
+
+.wordButtons {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  justify-content: center;
+
+  button {
+    max-width: 84px;
+    min-width: 0;
+
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  & [disabled] {
+    opacity: 0.5;
+  }
+}
+
+.songControls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+
+  .songScrubber {
+    flex: 1;
+    margin: 0px;
+  }
+
+  button {
+    display: flex;
+    align-items: center;
+    border: 0;
+    padding: 4px;
+    border-radius: var(--border-radius);
+    color: inherit;
+    background: rgba(0, 0, 0, .1);
+    box-shadow: none;
+
+    &.active {
+      background: var(--button-bg);
+      color: var(--button-fg);
+    }
   }
 }
 

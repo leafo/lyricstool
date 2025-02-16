@@ -38,9 +38,22 @@ export function chunkLyrics(lyrics, maxLines=2) {
 }
 
 
+// "Hello my lyrics' HERE" -> ["hello", "my", "lyrics'", "here"]
+export function extractWords(chunk) {
+  return chunk.toLowerCase()
+    .split(/\s+/)
+    .filter(word => word.length > 0);
+}
+
+
 // "Hello World" -> "H____ W____"
-export function hideWords(line, visibleLetters=1) {
+export function hideWords(line, visibleLetters=1, visibleWords=0) {
+  let wordsSeen = 0;
   return line.replace(/\S+/g, word => {
+    wordsSeen++;
+    if (wordsSeen <= visibleWords) {
+      return word;
+    }
     if (word.length <= visibleLetters) {
       return word;
     }
