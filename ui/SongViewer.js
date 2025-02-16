@@ -16,7 +16,7 @@ import * as songs from '../songs.js';
 
 import { WordBubbleIcon } from './icons.js';
 
-const SongScrubber = ({ value = 0, min, max, onChange }) => {
+const SongScrubber = React.memo(({ value = 0, min, max, onChange }) => {
   return <input
     className={css.songScrubber}
     type="range"
@@ -29,31 +29,34 @@ const SongScrubber = ({ value = 0, min, max, onChange }) => {
       }
     }}
   />
-};
+});
 
-const SongChunk = ({ chunk, hintLevel, wordsRevealed }) => {
+const SongChunk = React.memo(({ chunk, hintLevel, wordsRevealed, goNext }) => {
   const ref = React.useRef();
 
   React.useEffect(() => {
     ref.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
 
-  if (hintLevel) {
-    const originalChunk = chunk;
-    chunk = hideWords(chunk, hintLevel-1, wordsRevealed);
+  let visibleChunk = chunk;
 
-    if (chunk == originalChunk) {
-      // TODO: notify caller to update the progress value
-      console.log("no hints left");
-    }
+  if (hintLevel) {
+    visibleChunk = hideWords(chunk, hintLevel-1, wordsRevealed);
   }
 
-  return <li ref={ref} className={css.songChunk}>
-    {chunk}
-  </li>
-}
+  React.useEffect(() => {
+    if (chunk == visibleChunk && hintLevel) {
+      // we've filled out the line, advance to the next one
+      goNext();
+    }
+  }, [chunk, visibleChunk, hintLevel]);
 
-const SongContent = ({ chunks, progress, goNext, goPrev, goHint, goRevealWord, hintLevel, wordsRevealed }) => {
+  return <li ref={ref} className={css.songChunk}>
+    {visibleChunk}
+  </li>
+})
+
+const SongContent = React.memo(({ chunks, progress, goNext, goPrev, goHint, goRevealWord, hintLevel, wordsRevealed }) => {
   hintLevel ||= 0;
 
   return <div className={css.songContent}>
@@ -69,7 +72,7 @@ const SongContent = ({ chunks, progress, goNext, goPrev, goHint, goRevealWord, h
       {chunks.slice(0, progress + 1).map((chunk, idx) => {
         if (idx >= progress) {
           if (hintLevel > 0) {
-            return <SongChunk key={idx} chunk={chunk} hintLevel={hintLevel} wordsRevealed={wordsRevealed} />
+            return <SongChunk key={idx} chunk={chunk} hintLevel={hintLevel} wordsRevealed={wordsRevealed} goNext={goNext} />
           } else {
             return null
           }
@@ -79,9 +82,9 @@ const SongContent = ({ chunks, progress, goNext, goPrev, goHint, goRevealWord, h
       })}
     </ul>
   </div>
-}
+});
 
-const WordButtons = ({ chunks, progress, goRevealWord, wordsRevealed }) => {
+const WordButtons = React.memo(({ chunks, progress, goRevealWord, wordsRevealed }) => {
   const MAX_WORDS = 12;
   const [incorrectGuesses, setIncorrectGuesses] = React.useState([]);
 
@@ -122,7 +125,7 @@ const WordButtons = ({ chunks, progress, goRevealWord, wordsRevealed }) => {
       }}>{word}</button>
     })}
   </div>
-}
+});
 
 const updateViewerState = (state, action) => {
   switch (action.type) {
@@ -196,7 +199,8 @@ const SongViewerContent = ({ song, error }) => {
       goHint: () => dispatch({ type: "incrementHint" }),
       goRevealWord: () => {
         dispatch({ type: "incrementWordsRevealed" })
-      }
+      },
+      setProgress: (progress) => dispatch({ type: "setProgress", progress })
     };
   }, [chunks.length, dispatch]);
 
@@ -232,7 +236,7 @@ const SongViewerContent = ({ song, error }) => {
           min={0}
           max={chunks.length}
           value={state.progress}
-          onChange={(progress) => dispatch({ type: "setProgress", progress })}
+          onChange={songActions.setProgress}
         />
 
         <button className={showWordBubbles ? css.active : null} onClick={() => setShowWordBubbles(!showWordBubbles)}>

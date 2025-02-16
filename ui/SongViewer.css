@@ -117,6 +117,8 @@
 
   & [disabled] {
     opacity: 0.5;
+    box-shadow: none;
+    border-color: var(--button-bg);
   }
 }
 
@@ -137,11 +139,11 @@
     padding: 4px;
     border-radius: var(--border-radius);
     color: inherit;
-    background: rgba(0, 0, 0, .1);
+    background: var(--button-inactive-bg);
     box-shadow: none;
 
     &.active {
-      background: var(--button-bg);
+      background: var(--button-enabled-bg);
       color: var(--button-fg);
     }
   }

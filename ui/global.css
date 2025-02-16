@@ -8,6 +8,9 @@
   --content-bg: white;
 
   --button-bg: #323236;
+  --button-enabled-bg: #527a42;
+  --button-inactive-bg: #CFCFCF;
+
   --button-fg: white;
   --padding: 10px; /* padding within container elements and page margins */
   --gap: 10px; /* default gap between UI elements */
