@@ -222,7 +222,7 @@ const SongViewerContent = ({ song, error }) => {
   }, [chunks.length, dispatch]);
 
   if (error) {
-    return <p>{error.toString()}</p>
+    return <p className={css.emptyMessage}>{error.toString()}</p>
   }
 
   if (song) {

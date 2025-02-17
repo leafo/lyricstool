@@ -34,7 +34,7 @@ export const findSong = async id => {
     return result;
   }
 
-  throw new Error(`Failed to find song by id ${id}`);
+  throw new Error(`Failed to find song by ID ${id}, perhaps it was deleted?`);
 }
 
 export async function getSongsOrderedByIdDesc(limit, offset) {
