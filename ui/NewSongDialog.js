@@ -223,37 +223,27 @@ export function EditSongDialog({songId, onClose}) {
   const [loading, setLoading] = React.useState(false);
   const [song, error] = songs.useSong(songId);
 
-  const content = React.useMemo(() => {
-    if (error) {
-      return <p>{error.toString()}</p>
+  const handleSave = React.useCallback(async (e) => {
+    e.preventDefault();
+    if (loading) {
+      return;
     }
 
-    if (song) {
-      // TOOD: this needs to capture errors on failure
-      const handleSave = async (e) => {
-        e.preventDefault();
-        if (loading) {
-          return;
-        }
+    setLoading(true);
 
-        setLoading(true);
+    const data = formRef.current.serialize();
+    let updatedSong = {...song, ...data};
+    updatedSong.updatedAt = new Date().toISOString()
 
-        const data = formRef.current.serialize();
-        let updatedSong = {...song, ...data};
-        updatedSong.updatedAt = new Date().toISOString()
-
-        updatedSong = await processSong(updatedSong, song);
-        await songs.updateSong(updatedSong)
-        onClose();
-      };
-
-      return <SongForm ref={formRef} onSubmit={handleSave} song={song} loading={loading} />
-    }
-  }, [song, error, loading]);
+    updatedSong = await processSong(updatedSong, song);
+    await songs.updateSong(updatedSong)
+    onClose();
+  }, [loading, song, onClose]);
 
   return <Dialog onClose={onClose}>
     <h2>Edit Song</h2>
-    {content}
+    {erorr && <p>{error.toString()}</p>}
+    {song && <SongForm ref={formRef} onSubmit={handleSave} song={song} loading={loading} />}
   </Dialog>
 }
 
