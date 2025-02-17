@@ -59,6 +59,14 @@ const SongChunk = React.memo(({ chunk, hintLevel, wordsRevealed, goNext }) => {
 const SongContent = React.memo(({ chunks, progress, goNext, goPrev, goHint, goRevealWord, hintLevel, wordsRevealed }) => {
   hintLevel ||= 0;
 
+  if (chunks.length == 0) {
+    return <div className={css.songContent}>
+      <p className={css.emptyMessage}>
+        <em>This song has no lyrics, edit it to add some.</em>
+      </p>
+    </div>
+  }
+
   return <div className={css.songContent}>
     <div className={css.buttonOverlay}>
       <button onClick={goPrev} className={css.prevButton}>Prev</button>
@@ -111,6 +119,15 @@ const WordButtons = React.memo(({ chunks, progress, goRevealWord, wordsRevealed 
     const words = uniqueWords.slice(0, MAX_WORDS);
     return shuffle(words);
   }, [remainingWords]);
+
+
+  if (shuffledWords.length == 0) {
+    return <div className={css.wordButtons}>
+      <p className={css.emptyMessage}>
+        <em>No remaining words to guess.</em>
+      </p>
+    </div>
+  }
 
   return <div className={css.wordButtons}>
     {shuffledWords.map((word, idx) => {

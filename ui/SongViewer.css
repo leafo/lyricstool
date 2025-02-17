@@ -92,11 +92,11 @@
   }
 
   .hintButton {
-    grid-area: 1 / 1 / 2 / 3;
+    grid-area: 2 / 1 / 2 / 3;
   }
 
   .revealWordButton {
-    grid-area: 2 / 1 / 2 / 3;
+    grid-area: 1 / 1 / 2 / 3;
   }
 }
 
@@ -149,4 +149,10 @@
   }
 }
 
+
+.emptyMessage {
+  padding: var(--padding);
+  margin: 0;
+  opacity: 0.8;
+}
 
