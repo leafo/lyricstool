@@ -18,7 +18,19 @@ export function Dialog({ref, children, ...props}) {
     }
   }));
 
-  return <dialog ref={dialogRef} {...props} className={dialog}>
+  const handleClick = React.useCallback((e) => {
+    const dialogDimensions = dialogRef.current.getBoundingClientRect();
+    if (
+      e.clientX < dialogDimensions.left ||
+      e.clientX > dialogDimensions.right ||
+      e.clientY < dialogDimensions.top ||
+      e.clientY > dialogDimensions.bottom
+    ) {
+      dialogRef.current.close();
+    }
+  }, []);
+
+  return <dialog ref={dialogRef} onClick={handleClick} {...props} className={dialog}>
     {children}
   </dialog>
 }

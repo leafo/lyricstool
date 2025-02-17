@@ -74,10 +74,10 @@ function MainContent() {
   return <>
     <SongList />
 
-    <details>
+    {false && <details>
       <summary>Prompt Test</summary>
       <PromptTest />
-    </details>
+    </details>}
 
     <DumpConfig />
   </>

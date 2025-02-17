@@ -8,6 +8,19 @@ import { useRoute, useRouteToggle, updateRoute } from '../router.js';
 import { NewSongDialog, EditSongDialog } from './NewSongDialog.js';
 import { useAsync, formatTimestamp } from '../util.js';
 
+const LoadingSpinner = ({ width = 50, height = 50 }) => (
+  <svg className={css.loadingSpinner} viewBox="0 0 50 50" width={width} height={height}>
+    <circle
+      className={css.spinnerCircle}
+      cx="25"
+      cy="25"
+      r="20"
+      fill="none"
+      strokeWidth="5"
+    />
+  </svg>
+);
+
 const SongRow = ({ song }) => {
   const onClick = React.useCallback(e => {
     e.preventDefault();
@@ -48,6 +61,8 @@ export const SongList = () => {
         <h2>Songs List</h2>
         <button onClick={() => setShowNewSongDialog(true)}>New Song...</button>
       </nav>
+      {loading && <LoadingSpinner />}
+
       { songs && songs.length > 0 &&
         <ul>
           {songs.map((song) => (

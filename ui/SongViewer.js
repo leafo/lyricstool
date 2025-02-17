@@ -193,7 +193,7 @@ const updateViewerState = (state, action) => {
 
 const SongViewerContent = ({ song, error }) => {
   const [minHint] = useConfig("min_hint");
-  const [showWordBubbles, setShowWordBubbles] = useConfig("show_word_bubbles");
+  const [showWordBubbles, setShowWordBubbles] = useConfig("ui:showWordBubbles");
 
   const [state, dispatch] = React.useReducer(updateViewerState, {
     progress: 0,
