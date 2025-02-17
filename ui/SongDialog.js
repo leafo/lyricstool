@@ -1,6 +1,6 @@
 
 import React from 'react';
-import css from './NewSongDialog.css';
+import css from './SongDialog.css';
 
 import {Dialog} from './Dialog.js';
 import {useAsync} from '../util.js';
@@ -194,7 +194,7 @@ export function NewSongDialog({onClose}) {
   const formRef = React.useRef();
 
   // TODO: this needs to capture errors
-  const handleSave = async (e) => {
+  const handleSave = React.useCallback(async (e) => {
     e.preventDefault();
     if (loading) {
       return;
@@ -210,7 +210,7 @@ export function NewSongDialog({onClose}) {
 
     const songId = await songs.insertSong(newSong);
     onClose();
-  };
+  }, [loading, onClose]);
 
   return <Dialog onClose={onClose}>
     <h2>New Song</h2>
@@ -242,7 +242,7 @@ export function EditSongDialog({songId, onClose}) {
 
   return <Dialog onClose={onClose}>
     <h2>Edit Song</h2>
-    {erorr && <p>{error.toString()}</p>}
+    {error && <p>{error.toString()}</p>}
     {song && <SongForm ref={formRef} onSubmit={handleSave} song={song} loading={loading} />}
   </Dialog>
 }

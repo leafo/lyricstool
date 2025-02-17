@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { EditSongDialog } from './NewSongDialog.js';
+import { EditSongDialog } from './SongDialog.js';
 import css from './SongViewer.css';
 import {visiblyHidden} from './global.css';
 

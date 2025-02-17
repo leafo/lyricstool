@@ -5,7 +5,7 @@ import { getSongsOrderedByIdDesc, useDependency } from '../songs.js';
 import * as css from './SongList.css';
 
 import { useRoute, useRouteToggle, updateRoute } from '../router.js';
-import { NewSongDialog, EditSongDialog } from './NewSongDialog.js';
+import { NewSongDialog, EditSongDialog } from './SongDialog.js';
 import { useAsync, formatTimestamp } from '../util.js';
 
 const LoadingSpinner = ({ width = 50, height = 50 }) => (
