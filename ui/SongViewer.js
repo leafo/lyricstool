@@ -16,7 +16,7 @@ import * as songs from '../songs.js';
 
 import { WordBubbleIcon } from './icons.js';
 
-const SongScrubber = React.memo(({ value = 0, min, max, onChange }) => {
+const SongScrubber = React.memo(function SongScrubber({ value = 0, min, max, onChange }) {
   return <input
     className={css.songScrubber}
     type="range"
@@ -31,7 +31,7 @@ const SongScrubber = React.memo(({ value = 0, min, max, onChange }) => {
   />
 });
 
-const SongChunk = React.memo(({ chunk, hintLevel, wordsRevealed, goNext }) => {
+const SongChunk = React.memo(function Songchunk({ chunk, hintLevel, wordsRevealed, goNext }) {
   const ref = React.useRef();
 
   React.useEffect(() => {
@@ -56,7 +56,7 @@ const SongChunk = React.memo(({ chunk, hintLevel, wordsRevealed, goNext }) => {
   </li>
 })
 
-const SongContent = React.memo(({ chunks, progress, goNext, goPrev, goHint, goRevealWord, hintLevel, wordsRevealed }) => {
+const SongContent = React.memo(function SongContent({ chunks, progress, goNext, goPrev, goHint, goRevealWord, hintLevel, wordsRevealed }) {
   hintLevel ||= 0;
 
   if (chunks.length == 0) {
@@ -92,7 +92,7 @@ const SongContent = React.memo(({ chunks, progress, goNext, goPrev, goHint, goRe
   </div>
 });
 
-const WordButtons = React.memo(({ chunks, progress, goRevealWord, wordsRevealed }) => {
+const WordButtons = React.memo(function WordButtons({ chunks, progress, goRevealWord, wordsRevealed }) {
   const MAX_WORDS = 12;
   const [incorrectGuesses, setIncorrectGuesses] = React.useState([]);
 

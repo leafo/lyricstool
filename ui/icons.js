@@ -10,4 +10,5 @@ export const WordBubbleIcon = React.memo(({width, height}) => {
   </svg>
 });
 
+WordBubbleIcon.displayName = "WordBubbleIcon";
 
