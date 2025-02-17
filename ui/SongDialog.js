@@ -89,7 +89,7 @@ export function OcrButton({onSuccess}) {
 }
 
 
-export function SongForm({ref, onSubmit, song, loading, submitLabel}) {
+export function SongForm({ref, onSubmit, handleDelete, song, loading, submitLabel}) {
   const formRef = React.useRef();
 
   React.useImperativeHandle(ref, () => ({
@@ -183,8 +183,12 @@ export function SongForm({ref, onSubmit, song, loading, submitLabel}) {
       </table>
     </details>}
 
-    <div>
+    <div className={css.formButtons}>
       <button type="submit" disabled={loading}>{submitLabel || 'Save'}</button>
+      {handleDelete && <details className={css.deleteSong}>
+        <summary>Delete...</summary>
+        <button type="button" onClick={handleDelete}>Delete</button>
+      </details>}
     </div>
   </form>
 }
@@ -223,6 +227,7 @@ export function EditSongDialog({songId, onClose}) {
   const [loading, setLoading] = React.useState(false);
   const [song, error] = songs.useSong(songId);
 
+  // TODO: handle errors
   const handleSave = React.useCallback(async (e) => {
     e.preventDefault();
     if (loading) {
@@ -240,10 +245,22 @@ export function EditSongDialog({songId, onClose}) {
     onClose();
   }, [loading, song, onClose]);
 
+  const handleDelete = React.useCallback(async () => {
+    if (loading) {
+      return;
+    }
+
+    if (confirm("Are you sure you want to delete this song? This cannot be undone.")) {
+      setLoading(true);
+      await songs.deleteSong(songId);
+      onClose();
+    }
+  }, [songId, onClose]);
+
   return <Dialog onClose={onClose}>
     <h2>Edit Song</h2>
     {error && <p>{error.toString()}</p>}
-    {song && <SongForm ref={formRef} onSubmit={handleSave} song={song} loading={loading} />}
+    {song && <SongForm ref={formRef} onSubmit={handleSave} handleDelete={handleDelete} song={song} loading={loading} />}
   </Dialog>
 }
 

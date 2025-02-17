@@ -23,4 +23,9 @@
   }
 }
 
-
+.formButtons {
+  display: flex;
+  gap: var(--gap);
+  justify-content: space-between;
+  align-items: center;
+}

@@ -13,16 +13,22 @@ import React from 'react';
 const STORE_NAME = 'songs';
 export const store = new IndexedDBStore(STORE_NAME);
 
-export const insertSong = async song => store.add(song);
-export const updateSong = async song => store.put(song);
-export const deleteSong = async id => store.remove(id);
-
-export const findSong = async id => {
-  if (isNaN(parseInt(id, 10))) {
+// Validates and parses an ID into an integer
+export const parseId = id => {
+  const parsed = parseInt(id, 10);
+  if (isNaN(parsed)) {
     throw new Error('Invalid ID: ID must be an integer');
   }
-  id = parseInt(id, 10);
-  const result = await store.get(id);
+  return parsed;
+};
+
+
+export const insertSong = async song => store.add(song);
+export const updateSong = async song => store.put(song);
+export const deleteSong = async id => store.remove(parseId(id));
+
+export const findSong = async id => {
+  const result = await store.get(parseId(id));
 
   if (result != null) {
     return result;
@@ -30,7 +36,6 @@ export const findSong = async id => {
 
   throw new Error(`Failed to find song by id ${id}`);
 }
-
 
 export async function getSongsOrderedByIdDesc(limit, offset) {
   const db = await store.getDb();
