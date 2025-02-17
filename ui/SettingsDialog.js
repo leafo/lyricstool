@@ -1,5 +1,5 @@
 
-import {settingsDialog, buttons} from './SettingsDialog.css';
+import css, {settingsDialog, buttons} from './SettingsDialog.css';
 import React from 'react';
 
 import { useConfig } from '../config.js';
@@ -7,8 +7,9 @@ import { Dialog } from './Dialog';
 
 import { exportToJSON, importFromJSON } from '../export.js';
 
-function ConfigInput({ref, name, configName, ...inputProps})  {
+function ConfigInput({ref, name, configName, hideValue, ...inputProps})  {
   const inputRef = React.useRef();
+  const [isFocused, setIsFocused] = React.useState(false);
   const [configValue, setConfigValue, loading] = useConfig(configName || name, (value, isInitial) => {
     const input = inputRef.current;
     if (isInitial || document.activeElement !== input) {
@@ -32,7 +33,21 @@ function ConfigInput({ref, name, configName, ...inputProps})  {
     }
   }));
 
-  return <input ref={inputRef} name={name} {...inputProps} />
+  if (hideValue && !isFocused) {
+    inputProps = {
+      ...inputProps,
+      type: 'password',
+      autoComplete: 'off'
+    };
+  }
+
+  return <input
+    ref={inputRef}
+    name={name}
+    onFocus={() => setIsFocused(true)}
+    onBlur={() => setIsFocused(false)}
+    {...inputProps}
+  />
 }
 
 function downloadExport(e) {
@@ -117,13 +132,13 @@ export function SettingsDialog({onClose}) {
         Min Hint
         <ConfigInput ref={formRefs.minHint} name="min_hint" type="number" min="0" max="5" step="1" />
       </label>
-      <label>
+      {false && <label>
         OpenAI API Key
         <ConfigInput ref={formRefs.openAiApiKey} name="openai_api_key" />
-      </label>
+      </label>}
       <label>
-        Gemini API Key
-        <ConfigInput ref={formRefs.geminiApiKey} name="gemini_api_key" />
+        Gemini API Key &mdash; Needed for OCR lyrics
+        <ConfigInput ref={formRefs.geminiApiKey} className={css.apiKeyInput} name="gemini_api_key" hideValue />
       </label>
       <div className={buttons}>
         <button type="submit">Save</button>

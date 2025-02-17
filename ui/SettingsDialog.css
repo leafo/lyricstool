@@ -12,6 +12,10 @@
   }
 }
 
+.apiKeyInput {
+  font-family: monospace;
+}
+
 .buttons  {
   display: flex;
   flex-direction: row;
