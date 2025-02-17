@@ -40,12 +40,16 @@ const SongChunk = React.memo(function Songchunk({ chunk, hintLevel, wordsReveale
 
   let visibleChunk = chunk;
 
+  if (wordsRevealed > 0) {
+    hintLevel = Math.max(1, hintLevel || 0);
+  }
+
   if (hintLevel) {
     visibleChunk = hideWords(chunk, hintLevel-1, wordsRevealed);
   }
 
   React.useEffect(() => {
-    if (chunk == visibleChunk && hintLevel) {
+    if (chunk == visibleChunk && hintLevel && goNext) {
       // we've filled out the line, advance to the next one
       goNext();
     }
@@ -79,7 +83,7 @@ const SongContent = React.memo(function SongContent({ chunks, progress, goNext, 
     <ul>
       {chunks.slice(0, progress + 1).map((chunk, idx) => {
         if (idx >= progress) {
-          if (hintLevel > 0) {
+          if (hintLevel > 0 || wordsRevealed > 0) {
             return <SongChunk key={idx} chunk={chunk} hintLevel={hintLevel} wordsRevealed={wordsRevealed} goNext={goNext} />
           } else {
             return null
@@ -90,6 +94,41 @@ const SongContent = React.memo(function SongContent({ chunks, progress, goNext, 
       })}
     </ul>
   </div>
+});
+
+const normalizeWord = (word) => {
+  return word.trim().toLowerCase().replace(/[^\w\s]/g, '');
+}
+
+const WordInput = React.memo(function WordInput({ chunks, progress, goRevealWord, wordsRevealed }) {
+  const [currentValue, setCurrentValue] = React.useState("");
+
+  const nextWord = React.useMemo(() => {
+    const remainingChunks = chunks.slice(progress);
+    return remainingChunks.flatMap(chunk => extractWords(chunk)).slice(wordsRevealed ?? 0)[0];
+  }, [chunks, progress, wordsRevealed]);
+
+  const onChange = React.useCallback((e) => {
+    setCurrentValue(e.target.value)
+  }, [nextWord, goRevealWord]);
+
+  const onKeyDown = React.useCallback((e) => {
+    if (e.key === " " || e.key === "Enter") {
+      e.preventDefault();
+      if (normalizeWord(e.target.value) == normalizeWord(nextWord)) {
+        goRevealWord();
+        setCurrentValue("");
+      }
+    }
+  }, [nextWord, goRevealWord, setCurrentValue]);
+
+  return <input
+    placeholder="Type next word..."
+    value={currentValue}
+    onChange={onChange}
+    onKeyDown={onKeyDown}
+    className={css.wordInput}
+    />
 });
 
 const WordButtons = React.memo(function WordButtons({ chunks, progress, goRevealWord, wordsRevealed }) {
@@ -233,6 +272,12 @@ const SongViewerContent = ({ song, error }) => {
           <button type="button" onClick={() => updateRoute({ editSongId: song.id })}>Edit</button>
         </div>
       </div>
+
+      {showWordBubbles && <WordInput
+        {...songActions}
+        chunks={chunks}
+        wordsRevealed={state.wordsRevealed}
+        progress={state.progress} />}
 
       <SongContent
         {...songActions}
