@@ -260,6 +260,26 @@ const SongViewerContent = ({ song, error }) => {
     };
   }, [chunks.length, dispatch]);
 
+  // hotkeys for Ctrl+Left and Ctrl+Right
+  React.useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (!song) return;
+
+      if (e.ctrlKey) {
+        if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          songActions.goPrev();
+        } else if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          songActions.goNext();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [song, songActions]);
+
   if (error) {
     return <p className={css.emptyMessage}>{error.toString()}</p>
   }
