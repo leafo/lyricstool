@@ -109,7 +109,14 @@ const WordInput = React.memo(function WordInput({ chunks, progress, goRevealWord
   }, [chunks, progress, wordsRevealed]);
 
   const onChange = React.useCallback((e) => {
-    setCurrentValue(e.target.value)
+    const value = e.target.value;
+    // if a space is typed, and the word is correct, then accept it
+    if (value.endsWith(' ') && normalizeWord(value) == normalizeWord(nextWord)) {
+      goRevealWord();
+      setCurrentValue("");
+    } else {
+      setCurrentValue(value);
+    }
   }, [nextWord, goRevealWord]);
 
   const onKeyDown = React.useCallback((e) => {
