@@ -108,25 +108,50 @@ const WordInput = React.memo(function WordInput({ chunks, progress, goRevealWord
     return remainingChunks.flatMap(chunk => extractWords(chunk)).slice(wordsRevealed ?? 0)[0];
   }, [chunks, progress, wordsRevealed]);
 
+  const submitIfMatch = React.useCallback((rawValue) => {
+    if (!nextWord) {
+      return false;
+    }
+
+    const value = rawValue ?? "";
+    if (!value.trim()) {
+      return false;
+    }
+
+    if (normalizeWord(value) === normalizeWord(nextWord)) {
+      goRevealWord();
+      setCurrentValue("");
+      return true;
+    }
+
+    return false;
+  }, [goRevealWord, nextWord]);
+
   const onChange = React.useCallback((e) => {
-    setCurrentValue(e.target.value)
-  }, [nextWord, goRevealWord]);
+    const { value } = e.target;
+    setCurrentValue(value);
+
+    if (/\s$/.test(value)) {
+      submitIfMatch(value);
+    }
+  }, [submitIfMatch]);
 
   const onKeyDown = React.useCallback((e) => {
-    if (e.key === " " || e.key === "Enter") {
+    if (e.key === "Enter" && !e.nativeEvent.isComposing) {
       e.preventDefault();
-      if (normalizeWord(e.target.value) == normalizeWord(nextWord)) {
-        goRevealWord();
-        setCurrentValue("");
-      }
+      submitIfMatch(e.currentTarget.value);
     }
-  }, [nextWord, goRevealWord, setCurrentValue]);
+  }, [submitIfMatch]);
 
   return <input
     placeholder="Type next word..."
     value={currentValue}
     onChange={onChange}
     onKeyDown={onKeyDown}
+    autoComplete="off"
+    autoCorrect="off"
+    autoCapitalize="off"
+    spellCheck={false}
     className={css.wordInput}
     />
 });
@@ -339,4 +364,3 @@ export const SongViewer = ({ songId }) => {
     {routeParams.editSongId && <EditSongDialog songId={routeParams.editSongId} onClose={() => updateRoute({ editSongId: false })} />}
   </>
 };
-
