@@ -32,7 +32,7 @@ const SongRow = ({ song }) => {
     <button className={css.songRowButton} type="button" onClick={onClick}>View {song.title}</button>
     <h3>{song.title}</h3>
     {song.artist && <p><strong>Artist:</strong> {song.artist}</p>}
-    <p className={css.lyrics}>{song.lyrics}</p>
+    <p className={css.lyrics}>{song.getLyrics()}</p>
     <div className={css.songTools}>
       <button type="button" onClick={() => updateRoute({ editSongId: song.id })}>Edit</button>
       <div className={css.songMeta}>

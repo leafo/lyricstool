@@ -10,8 +10,62 @@ import { IndexedDBStore } from './database';
 import { useAsync } from './util';
 import React from 'react';
 
+class Song {
+  constructor(data) {
+    Object.assign(this, data);
+  }
+
+  getLyrics() {
+    if (!this.measures) return this.lyrics || '';
+
+    // Sort measures by measureNumber
+    const sortedMeasures = [...this.measures].sort((a, b) => a.measureNumber - b.measureNumber);
+
+    let lyricsText = '';
+
+    for (const measure of sortedMeasures) {
+      if (!measure.lyrics || measure.lyrics.length === 0) continue;
+
+      // Sort lyrics within measure by beat
+      const sortedLyrics = [...measure.lyrics].sort((a, b) => a.beat - b.beat);
+
+      // Concatenate lyrics for this measure, handling hyphenated words
+      let measureLyrics = '';
+      for (let i = 0; i < sortedLyrics.length; i++) {
+        const currentText = sortedLyrics[i].text;
+
+        if (i === 0) {
+          measureLyrics = currentText;
+        } else {
+          const previousText = sortedLyrics[i - 1].text;
+          // If previous text ends with hyphen and current starts with hyphen, merge them
+          if (previousText.endsWith('-') && currentText.startsWith('-')) {
+            // Remove the trailing hyphen from previous and leading hyphen from current
+            measureLyrics = measureLyrics.slice(0, -1) + currentText.slice(1);
+          } else if (previousText.endsWith('-') && !currentText.startsWith(' ')) {
+            // Previous ends with hyphen and current is likely the continuation - remove hyphen and concatenate
+            measureLyrics = measureLyrics.slice(0, -1) + currentText;
+          } else {
+            // Normal case - add space between words
+            measureLyrics += ' ' + currentText;
+          }
+        }
+      }
+
+      if (measureLyrics.trim()) {
+        lyricsText += measureLyrics + ' ';
+      }
+    }
+
+    // Clean up: normalize spacing
+    return lyricsText
+      .replace(/\s+/g, ' ') // normalize multiple spaces to single space
+      .trim();
+  }
+}
+
 const STORE_NAME = 'songs';
-export const store = new IndexedDBStore(STORE_NAME);
+export const store = new IndexedDBStore(STORE_NAME, Song);
 
 // Validates and parses an ID into an integer
 export const parseId = id => {
@@ -38,33 +92,7 @@ export const findSong = async id => {
 }
 
 export async function getSongsOrderedByIdDesc(limit, offset) {
-  const db = await store.getDb();
-
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction([STORE_NAME], 'readonly');
-    const store = transaction.objectStore(STORE_NAME);
-
-    const request = store.openCursor(null, 'prev');
-    const songs = [];
-    let currentIndex = 0;
-
-    request.onsuccess = (event) => {
-      const cursor = event.target.result;
-      if (cursor && currentIndex < offset + limit) {
-        if (currentIndex >= offset) {
-          songs.push(cursor.value);
-        }
-        currentIndex++;
-        cursor.continue();
-      } else {
-        resolve(songs);
-      }
-    };
-
-    request.onerror = (event) => {
-      reject(new Error(`Failed to get songs: ${event.target.errorCode}`));
-    };
-  });
+  return store.queryOrderedDesc(limit, offset);
 }
 
 

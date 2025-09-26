@@ -270,7 +270,7 @@ const SongViewerContent = ({ song, error }) => {
       return []
     }
 
-    return chunkLyrics(song.lyrics);
+    return chunkLyrics(song.getLyrics());
   }, [song]);
 
   const songActions = React.useMemo(() => {
