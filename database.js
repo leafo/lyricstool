@@ -101,8 +101,9 @@ export class StoreEventEmitter {
 }
 
 export class IndexedDBStore {
-  constructor(storeName) {
+  constructor(storeName, rowConstructor = null) {
     this.storeName = storeName;
+    this.rowConstructor = rowConstructor;
     this.eventEmitter = new StoreEventEmitter();
     this.getDb();
   }
@@ -118,6 +119,11 @@ export class IndexedDBStore {
     return this.db;
   }
 
+  transformRow(data) {
+    if (!data) return data;
+    return this.rowConstructor ? new this.rowConstructor(data) : data;
+  }
+
   async get(key) {
     const db = await this.getDb();
     return new Promise((resolve, reject) => {
@@ -126,7 +132,7 @@ export class IndexedDBStore {
       const request = store.get(key);
 
       request.onsuccess = (event) => {
-        resolve(event.target.result);
+        resolve(this.transformRow(event.target.result));
       };
 
       request.onerror = (event) => {
@@ -186,6 +192,36 @@ export class IndexedDBStore {
 
       request.onerror = (event) => {
         reject(new Error(`'${this.storeName}': Remove error ${event.target.errorCode}`));
+      };
+    });
+  }
+
+  async queryOrderedDesc(limit, offset) {
+    const db = await this.getDb();
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([this.storeName], 'readonly');
+      const store = transaction.objectStore(this.storeName);
+
+      const request = store.openCursor(null, 'prev');
+      const results = [];
+      let currentIndex = 0;
+
+      request.onsuccess = (event) => {
+        const cursor = event.target.result;
+        if (cursor && currentIndex < offset + limit) {
+          if (currentIndex >= offset) {
+            results.push(this.transformRow(cursor.value));
+          }
+          currentIndex++;
+          cursor.continue();
+        } else {
+          resolve(results);
+        }
+      };
+
+      request.onerror = (event) => {
+        reject(new Error(`'${this.storeName}': Query error ${event.target.errorCode}`));
       };
     });
   }
