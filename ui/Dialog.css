@@ -29,7 +29,7 @@
       font-size: 14px;
       gap: 5px;
 
-      input, textarea {
+      input:not([type="checkbox"]), textarea {
         width: 100%;
         padding: 5px;
         border: 1px solid #ccc;

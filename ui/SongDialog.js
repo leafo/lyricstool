@@ -53,8 +53,20 @@ async function chooseImage() {
 export function OcrButton({onSuccess}) {
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState(null);
+  const [measureDetectionMode, setMeasureDetectionMode] = React.useState(false);
+  const [elapsedTime, setElapsedTime] = React.useState(0);
+  const timerRef = React.useRef(null);
 
   const geminiApiKey = useConfig("gemini_api_key");
+
+  // Cleanup timer on unmount
+  React.useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, []);
 
   if (!geminiApiKey) {
     return null
@@ -65,24 +77,51 @@ export function OcrButton({onSuccess}) {
 
     chooseImage().then(async file => {
       setLoading(true);
+      setElapsedTime(0);
+
+      // Start timer
+      const startTime = Date.now();
+      timerRef.current = setInterval(() => {
+        setElapsedTime(Math.floor((Date.now() - startTime) / 1000));
+      }, 1000);
 
       try {
-        const ocrResult = await gemini.ocrLyrics(file);
-        onSuccess(ocrResult);
+        if (measureDetectionMode) {
+          const measureResult = await gemini.ocrMeasures(file);
+          console.log("Measure Detection Result:", measureResult);
+          onSuccess(measureResult);
+        } else {
+          const ocrResult = await gemini.ocrLyrics(file);
+          onSuccess(ocrResult);
+        }
       } catch (err) {
         setError(err.message || "OCR failed");
         console.error("OCR Error:", err);
       } finally {
+        // Clean up timer
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+        }
         setLoading(false);
       }
     });
   };
 
   return (
-    <div>
+    <div className={css.ocrControls}>
       <button type="button" onClick={handleClick} disabled={loading}>
-        {loading ? "Loading..." : "OCR Import..."}
+        {loading ? `Processing... ${elapsedTime}s` : "OCR Import..."}
       </button>
+      <label className={css.checkboxLabel}>
+        <input
+          type="checkbox"
+          checked={measureDetectionMode}
+          onChange={(e) => setMeasureDetectionMode(e.target.checked)}
+          disabled={loading}
+        />
+        Measure Detection Mode
+      </label>
       {error && <div className="error">{error}</div>}
     </div>
   );
@@ -91,15 +130,27 @@ export function OcrButton({onSuccess}) {
 
 export function SongForm({ref, onSubmit, handleDelete, song, loading, submitLabel}) {
   const formRef = React.useRef();
+  const [measuresValue, setMeasuresValue] = React.useState(
+    song?.measures ? JSON.stringify(song.measures, null, 2) : ''
+  );
 
   React.useImperativeHandle(ref, () => ({
     serialize() {
       const formData = new FormData(formRef.current);
+      let measures = null;
+      if (measuresValue && measuresValue.trim()) {
+        try {
+          measures = JSON.parse(measuresValue);
+        } catch (e) {
+          console.error('Failed to parse measures JSON:', e);
+        }
+      }
       return {
         title: formData.get('title'),
         artist: formData.get('artist'),
         lyrics: formData.get('lyrics'),
-        notes: formData.get('notes')
+        notes: formData.get('notes'),
+        measures: measures
       };
     }
   }));
@@ -114,11 +165,18 @@ export function SongForm({ref, onSubmit, handleDelete, song, loading, submitLabe
         if (res.artist) {
           form.querySelector('input[name="artist"]').value = res.artist;
         }
-        if (res.lyrics) {
-          form.querySelector('textarea[name="lyrics"]').value = res.lyrics;
-        }
-        if (res.notes) {
-          form.querySelector('textarea[name="notes"]').value = res.notes;
+        if (res.measures) {
+          // Measure detection mode - populate measures and leave lyrics blank
+          setMeasuresValue(JSON.stringify(res.measures, null, 2));
+          form.querySelector('textarea[name="lyrics"]').value = '';
+        } else {
+          // Lyrics mode - populate lyrics and notes
+          if (res.lyrics) {
+            form.querySelector('textarea[name="lyrics"]').value = res.lyrics;
+          }
+          if (res.notes) {
+            form.querySelector('textarea[name="notes"]').value = res.notes;
+          }
         }
       }
     }} />
@@ -133,10 +191,20 @@ export function SongForm({ref, onSubmit, handleDelete, song, loading, submitLabe
       <input type="text" name="artist" placeholder="Optional" defaultValue={song?.artist || ''} />
     </label>
 
-    <label>
-      Lyrics
-      <textarea name="lyrics" rows="10" defaultValue={song?.lyrics || ''} required></textarea>
-    </label>
+    {measuresValue ? (
+      <>
+        <input type="hidden" name="lyrics" value="" />
+        <label>
+          Measures (JSON)
+          <textarea name="measures" rows="10" readOnly value={measuresValue} onChange={() => {}}></textarea>
+        </label>
+      </>
+    ) : (
+      <label>
+        Lyrics
+        <textarea name="lyrics" rows="10" defaultValue={song?.lyrics || ''} required></textarea>
+      </label>
+    )}
 
     <label>
       Notes

@@ -43,6 +43,14 @@ const OCR_LYRICS_RESPONSE_SCHEMA = {
 const OCR_MEASURES_RESPONSE_SCHEMA = {
   type: "object",
   properties: {
+    title: {
+      type: "string",
+      description: "The title of the song, if visible in the image"
+    },
+    artist: {
+      type: "string",
+      description: "The artist of the song, if visible in the image"
+    },
     measures: {
       type: "array",
       items: {
@@ -139,7 +147,6 @@ export async function ocrLyrics(file) {
     generationConfig
   };
 
-
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`, {
     method: 'POST',
     headers: {
@@ -159,12 +166,10 @@ export async function ocrLyrics(file) {
       return Promise.reject(new Error("Unexpected response format from Gemini API"));
   }
 
-
   const finishReason = data.candidates[0].finishReason;
   if (finishReason !== 'STOP') {
     return Promise.reject(new Error(`Gemini did not finish with STOP reason: ${finishReason}`));
   }
-
 
   try {
     return JSON.parse(data.candidates[0].content.parts[0].text);
@@ -200,8 +205,13 @@ export async function ocrMeasures(file) {
       {
         parts: [
           {
-            text: `Analyze this sheet music image and extract the musical measures with their beats, chords, and lyrics. For each measure:
+            text: `Analyze this sheet music image and extract the song information and musical measures with their beats, chords, and lyrics.
 
+First, look for song metadata:
+- Extract the song title if visible in the image
+- Extract the artist name if visible in the image
+
+Then, for each measure:
 1. Identify the measure boundaries and number them sequentially starting from 1
 2. Determine the number of beats per measure (typically 4 for 4/4 time signature)
 3. Extract chord symbols (like C, Am, F7, G/B) and identify which beat they appear on
@@ -209,8 +219,10 @@ export async function ocrMeasures(file) {
 5. Use 1-based beat numbering (beats 1, 2, 3, 4 for a 4/4 measure)
 
 Guidelines:
+- Only include title and artist if they are clearly visible in the image
 - If a chord spans multiple beats, only record it on the beat where it first appears
 - If lyrics span multiple beats, break them into syllables aligned with beats when possible
+- If a word is split across beats, use hyphens to indicate the split (e.g., "beau-" on beat 1, "-ti-" on beat 2, "-ful" on beat 3)
 - If no chord is present on a beat, omit it from the chords array
 - If no lyrics are present on a beat, omit it from the lyrics array
 - Be precise about beat positioning based on visual alignment in the sheet music
