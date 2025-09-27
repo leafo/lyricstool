@@ -44,7 +44,7 @@ function filterObject(obj, fields) {
 
 
 // Return the query string as a state object
-// fields: optional limit the result to only the specified fields (will prevent re-renders if when unlisted fields change)
+// fields: optional limit the result to only the specified fields (will prevent re-renders if unused fields change)
 export function useRoute(fields=null) {
   const [routeParams, setRouteParams] = useState(() => {
     const queryParams = new URLSearchParams(window.location.search);

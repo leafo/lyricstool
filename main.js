@@ -66,14 +66,16 @@ function PromptTest() {
 }
 
 function MainContent() {
-  const routeParams = useRoute(["viewSongId", "viewMeasureSongId"]);
+  const routeParams = useRoute(["viewSongId", "display"]);
 
   if (routeParams.viewSongId) {
-    return <SongViewer key={routeParams.viewSongId} songId={routeParams.viewSongId} />
-  }
+    const display = routeParams.display || 'lyrics';
 
-  if (routeParams.viewMeasureSongId) {
-    return <SongMeasureViewer key={routeParams.viewMeasureSongId} songId={routeParams.viewMeasureSongId} />
+    if (display === 'measures') {
+      return <SongMeasureViewer key={routeParams.viewSongId} songId={routeParams.viewSongId} />
+    } else {
+      return <SongViewer key={routeParams.viewSongId} songId={routeParams.viewSongId} />
+    }
   }
 
   return <>

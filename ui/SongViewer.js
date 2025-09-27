@@ -314,6 +314,9 @@ const SongViewerContent = ({ song, error }) => {
       <div className={css.songHeader}>
         <h1>{song.title}</h1>
         <div className={css.buttons}>
+          {song.measures && song.measures.length > 0 && (
+            <button type="button" onClick={() => updateRoute({ display: 'measures' })}>Measures View</button>
+          )}
           <button type="button" onClick={() => updateRoute({ editSongId: song.id })}>Edit</button>
         </div>
       </div>

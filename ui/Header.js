@@ -9,7 +9,7 @@ export function Header() {
   const routeParams = useRoute(["viewSongId"]);
 
   return <header className={header}>
-    {routeParams.viewSongId && (
+    {Object.keys(routeParams).length > 0 && (
       <button className="menuButton" type="button" onClick={() => setRoute({})}>
         <span className="icon">&#9776;</span>
       </button>

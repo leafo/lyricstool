@@ -25,7 +25,7 @@ const SongRow = ({ song }) => {
   const onClick = React.useCallback(e => {
     e.preventDefault();
     e.stopPropagation();
-    updateRoute({ viewSongId: song.id });
+    updateRoute({ viewSongId: song.id, display: 'lyrics' });
   }, [song.id]);
 
   return <li className={css.songRow}>
@@ -36,7 +36,7 @@ const SongRow = ({ song }) => {
     <div className={css.songTools}>
       <button type="button" onClick={() => updateRoute({ editSongId: song.id })}>Edit</button>
       {song.measures && song.measures.length > 0 && (
-        <button type="button" onClick={() => updateRoute({ viewMeasureSongId: song.id })}>Measures</button>
+        <button type="button" onClick={() => updateRoute({ viewSongId: song.id, display: 'measures' })}>Measures</button>
       )}
       <div className={css.songMeta}>
         <strong>Created:</strong> {formatTimestamp(song.createdAt)}

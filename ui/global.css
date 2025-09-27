@@ -12,6 +12,22 @@
   --button-inactive-bg: #CFCFCF;
 
   --button-fg: white;
+
+  /* Text colors */
+  --text-color: #000;
+  --muted-text-color: #666;
+
+  /* Chord colors */
+  --primary-color: #2c5aa0;
+  --primary-bg-color: #e6f3ff;
+
+  /* Status colors */
+  --error-color: #d32f2f;
+
+  /* Beat/measure colors */
+  --beat-bg-color: #fafafa;
+  --beat-border-color: #e0e0e0;
+
   --padding: 10px; /* padding within container elements and page margins */
   --gap: 10px; /* default gap between UI elements */
 }

@@ -65,7 +65,7 @@ export function SongMeasureViewer({ songId }) {
         <div className={css.songHeader}>
           <h1>{song.title}</h1>
           <div className={css.buttons}>
-            <button type="button" onClick={() => updateRoute({ viewSongId: songId })}>
+            <button type="button" onClick={() => updateRoute({ display: 'lyrics' })}>
               Text View
             </button>
           </div>
@@ -86,7 +86,7 @@ export function SongMeasureViewer({ songId }) {
         <h1>{song.title}</h1>
         {song.artist && <div className={css.artist}>by {song.artist}</div>}
         <div className={css.buttons}>
-          <button type="button" onClick={() => updateRoute({ viewSongId: songId })}>
+          <button type="button" onClick={() => updateRoute({ display: 'lyrics' })}>
             Text View
           </button>
           <button type="button" onClick={() => setEditDialogOpen(true)}>
