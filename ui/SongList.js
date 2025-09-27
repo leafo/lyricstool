@@ -35,6 +35,9 @@ const SongRow = ({ song }) => {
     <p className={css.lyrics}>{song.getLyrics()}</p>
     <div className={css.songTools}>
       <button type="button" onClick={() => updateRoute({ editSongId: song.id })}>Edit</button>
+      {song.measures && song.measures.length > 0 && (
+        <button type="button" onClick={() => updateRoute({ viewMeasureSongId: song.id })}>Measures</button>
+      )}
       <div className={css.songMeta}>
         <strong>Created:</strong> {formatTimestamp(song.createdAt)}
         <br />

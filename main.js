@@ -6,6 +6,7 @@ import { createRoot } from 'react-dom/client';
 
 import { SongList } from './ui/SongList.js';
 import { SongViewer } from './ui/SongViewer.js';
+import { SongMeasureViewer } from './ui/SongMeasureViewer.js';
 
 import { SettingsDialog } from './ui/SettingsDialog.js';
 import { Header } from './ui/Header.js';
@@ -65,10 +66,14 @@ function PromptTest() {
 }
 
 function MainContent() {
-  const routeParams = useRoute(["viewSongId"]);
+  const routeParams = useRoute(["viewSongId", "viewMeasureSongId"]);
 
   if (routeParams.viewSongId) {
     return <SongViewer key={routeParams.viewSongId} songId={routeParams.viewSongId} />
+  }
+
+  if (routeParams.viewMeasureSongId) {
+    return <SongMeasureViewer key={routeParams.viewMeasureSongId} songId={routeParams.viewMeasureSongId} />
   }
 
   return <>
