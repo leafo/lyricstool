@@ -75,6 +75,25 @@
   border-color: var(--primary-color);
 }
 
+.settingsButton {
+  background: none;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  padding: 8px;
+  color: var(--muted-text-color);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.settingsButton:hover {
+  background-color: var(--hover-bg-color, rgba(0, 0, 0, 0.05));
+  color: var(--text-color);
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .transportControls {
@@ -90,5 +109,9 @@
   .bpmInput {
     width: 50px;
     font-size: 13px;
+  }
+
+  .settingsButton {
+    padding: 6px;
   }
 }

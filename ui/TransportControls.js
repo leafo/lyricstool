@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { PlayIcon, PauseIcon } from './icons.js';
+import { PlayIcon, PauseIcon, SettingsIcon } from './icons.js';
 import css from './TransportControls.css';
 
 export const TransportControls = React.memo(function TransportControls({
@@ -10,7 +10,8 @@ export const TransportControls = React.memo(function TransportControls({
   totalBeats,
   onPositionChange,
   bpm,
-  onBpmChange
+  onBpmChange,
+  onSettingsClick
 }) {
   const handlePositionChange = React.useCallback((e) => {
     onPositionChange(parseInt(e.target.value));
@@ -22,6 +23,7 @@ export const TransportControls = React.memo(function TransportControls({
       onBpmChange(value);
     }
   }, [onBpmChange]);
+
 
   return (
     <div className={css.transportControls}>
@@ -59,6 +61,15 @@ export const TransportControls = React.memo(function TransportControls({
           className={css.bpmInput}
         />
       </div>
+
+      <button
+        type="button"
+        className={css.settingsButton}
+        onClick={onSettingsClick}
+        title="Playback settings"
+      >
+        <SettingsIcon width={20} height={20} />
+      </button>
     </div>
   );
 });
