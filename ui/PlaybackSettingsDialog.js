@@ -9,12 +9,21 @@ export function PlaybackSettingsDialog({
   metronomeEnabled,
   onMetronomeToggle,
   metronomeVolume,
-  onMetronomeVolumeChange
+  onMetronomeVolumeChange,
+  chordPlaybackEnabled,
+  onChordPlaybackToggle,
+  chordPlaybackVolume,
+  onChordPlaybackVolumeChange
 }) {
   const handleMetronomeVolumeChange = React.useCallback((e) => {
     const value = parseFloat(e.target.value);
     onMetronomeVolumeChange(value);
   }, [onMetronomeVolumeChange]);
+
+  const handleChordPlaybackVolumeChange = React.useCallback((e) => {
+    const value = parseFloat(e.target.value);
+    onChordPlaybackVolumeChange(value);
+  }, [onChordPlaybackVolumeChange]);
 
   if (!isOpen) return null;
 
@@ -31,7 +40,7 @@ export function PlaybackSettingsDialog({
           Enable metronome
         </label>
         <label>
-          Volume
+          Metronome Volume
           <input
             type="range"
             min="0"
@@ -40,6 +49,26 @@ export function PlaybackSettingsDialog({
             value={metronomeVolume}
             onChange={handleMetronomeVolumeChange}
             disabled={!metronomeEnabled}
+          />
+        </label>
+        <label className={checkboxClass}>
+          <input
+            type="checkbox"
+            checked={chordPlaybackEnabled}
+            onChange={onChordPlaybackToggle}
+          />
+          Enable chord playback
+        </label>
+        <label>
+          Chord Volume
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.1"
+            value={chordPlaybackVolume}
+            onChange={handleChordPlaybackVolumeChange}
+            disabled={!chordPlaybackEnabled}
           />
         </label>
       </form>

@@ -8,6 +8,7 @@ import css from './SongMeasureViewer.css';
 import { useRoute, updateRoute } from '../router.js';
 import * as songs from '../songs.js';
 import { metronome } from '../metronome.js';
+import { chordPlayer } from '../chordPlayer.js';
 
 const MeasureBeat = React.memo(function MeasureBeat({ beat, measureNumber, chordsForBeat, lyricsForBeat, isCurrentBeat }) {
   return (
@@ -61,10 +62,18 @@ export function SongMeasureViewer({ songId }) {
   const [metronomeEnabled, setMetronomeEnabled] = React.useState(true);
   const [metronomeVolume, setMetronomeVolume] = React.useState(0.3);
 
-  // Initialize metronome
+  // Chord playback state
+  const [chordPlaybackEnabled, setChordPlaybackEnabled] = React.useState(true);
+  const [chordPlaybackVolume, setChordPlaybackVolume] = React.useState(0.2);
+
+  // Initialize metronome and chord player
   React.useEffect(() => {
     metronome.init();
-    return () => metronome.destroy();
+    chordPlayer.init();
+    return () => {
+      metronome.destroy();
+      chordPlayer.destroy();
+    };
   }, []);
 
   // Update metronome settings
@@ -72,6 +81,12 @@ export function SongMeasureViewer({ songId }) {
     metronome.setEnabled(metronomeEnabled);
     metronome.setVolume(metronomeVolume);
   }, [metronomeEnabled, metronomeVolume]);
+
+  // Update chord player settings
+  React.useEffect(() => {
+    chordPlayer.setEnabled(chordPlaybackEnabled);
+    chordPlayer.setVolume(chordPlaybackVolume);
+  }, [chordPlaybackEnabled, chordPlaybackVolume]);
 
   // Calculate total beats across all measures
   const totalBeats = React.useMemo(() => {
@@ -131,6 +146,15 @@ export function SongMeasureViewer({ songId }) {
           const isDownbeat = nextBeat === 1;
           metronome.playClick(isDownbeat);
 
+          // Play chords for the new beat
+          const nextMeasureData = sortedMeasures.find(m => m.measureNumber === nextMeasure);
+          if (nextMeasureData && nextMeasureData.chords) {
+            const chordsForBeat = nextMeasureData.chords.filter(chord => chord.beat === nextBeat);
+            chordsForBeat.forEach(chord => {
+              chordPlayer.playChord(chord.chord);
+            });
+          }
+
           return nextMeasure;
         });
 
@@ -153,13 +177,25 @@ export function SongMeasureViewer({ songId }) {
   const handlePlayPause = React.useCallback(() => {
     setIsPlaying(prev => {
       if (!prev) {
-        // Starting playback - play initial click
+        // Starting playback - play initial click and chords
         const isDownbeat = currentBeat === 1;
         metronome.playClick(isDownbeat);
+
+        // Play chords for the current beat
+        if (song?.measures) {
+          const sortedMeasures = [...song.measures].sort((a, b) => a.measureNumber - b.measureNumber);
+          const currentMeasureData = sortedMeasures.find(m => m.measureNumber === currentMeasure);
+          if (currentMeasureData && currentMeasureData.chords) {
+            const chordsForBeat = currentMeasureData.chords.filter(chord => chord.beat === currentBeat);
+            chordsForBeat.forEach(chord => {
+              chordPlayer.playChord(chord.chord);
+            });
+          }
+        }
       }
       return !prev;
     });
-  }, [currentBeat]);
+  }, [currentBeat, currentMeasure, song?.measures]);
 
   const handlePositionChange = React.useCallback((newPosition) => {
     if (!song?.measures) return;
@@ -191,6 +227,14 @@ export function SongMeasureViewer({ songId }) {
 
   const handleMetronomeVolumeChange = React.useCallback((newVolume) => {
     setMetronomeVolume(newVolume);
+  }, []);
+
+  const handleChordPlaybackToggle = React.useCallback(() => {
+    setChordPlaybackEnabled(prev => !prev);
+  }, []);
+
+  const handleChordPlaybackVolumeChange = React.useCallback((newVolume) => {
+    setChordPlaybackVolume(newVolume);
   }, []);
 
   const handleSettingsClick = React.useCallback(() => {
@@ -296,6 +340,10 @@ export function SongMeasureViewer({ songId }) {
         onMetronomeToggle={handleMetronomeToggle}
         metronomeVolume={metronomeVolume}
         onMetronomeVolumeChange={handleMetronomeVolumeChange}
+        chordPlaybackEnabled={chordPlaybackEnabled}
+        onChordPlaybackToggle={handleChordPlaybackToggle}
+        chordPlaybackVolume={chordPlaybackVolume}
+        onChordPlaybackVolumeChange={handleChordPlaybackVolumeChange}
       />
 
       {editDialogOpen && (
