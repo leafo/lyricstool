@@ -1,17 +1,15 @@
 import React from 'react';
 
 import { EditSongDialog } from './SongDialog.js';
+import { TransportControls } from './TransportControls.js';
 import css from './SongMeasureViewer.css';
 
 import { useRoute, updateRoute } from '../router.js';
 import * as songs from '../songs.js';
 
-const MeasureBeat = React.memo(function MeasureBeat({ beat, measureNumber, chords, lyrics }) {
-  const chordsForBeat = chords.filter(chord => chord.beat === beat);
-  const lyricsForBeat = lyrics.filter(lyric => lyric.beat === beat);
-
+const MeasureBeat = React.memo(function MeasureBeat({ beat, measureNumber, chordsForBeat, lyricsForBeat, isCurrentBeat }) {
   return (
-    <div className={css.measureBeat}>
+    <div className={`${css.measureBeat} ${isCurrentBeat ? css.currentBeat : ''}`}>
       {beat === 1 && <div className={css.measureNumber}>{measureNumber}</div>}
       <div className={css.chords}>
         {chordsForBeat.map((chord, index) => (
@@ -27,19 +25,18 @@ const MeasureBeat = React.memo(function MeasureBeat({ beat, measureNumber, chord
   );
 });
 
-const MeasureCard = React.memo(function MeasureCard({ measure }) {
-  const beats = Array.from({ length: measure.numberOfBeats }, (_, i) => i + 1);
-
+const MeasureCard = React.memo(function MeasureCard({ measureData, currentBeat }) {
   return (
     <div className={css.measureCard}>
       <div className={css.measureBeats}>
-        {beats.map(beat => (
+        {measureData.beats.map(beatData => (
           <MeasureBeat
-            key={beat}
-            beat={beat}
-            measureNumber={measure.measureNumber}
-            chords={measure.chords || []}
-            lyrics={measure.lyrics || []}
+            key={beatData.beat}
+            beat={beatData.beat}
+            measureNumber={measureData.measureNumber}
+            chordsForBeat={beatData.chordsForBeat}
+            lyricsForBeat={beatData.lyricsForBeat}
+            isCurrentBeat={currentBeat !== null && beatData.beat === currentBeat}
           />
         ))}
       </div>
@@ -50,6 +47,132 @@ const MeasureCard = React.memo(function MeasureCard({ measure }) {
 export function SongMeasureViewer({ songId }) {
   const [song, error] = songs.useSong(songId);
   const [editDialogOpen, setEditDialogOpen] = React.useState(false);
+
+  // Playback state
+  const [currentMeasure, setCurrentMeasure] = React.useState(1);
+  const [currentBeat, setCurrentBeat] = React.useState(1);
+  const [bpm, setBpm] = React.useState(120);
+  const [isPlaying, setIsPlaying] = React.useState(false);
+
+  // Calculate total beats across all measures
+  const totalBeats = React.useMemo(() => {
+    if (!song?.measures) return 0;
+    return song.measures.reduce((sum, measure) => sum + (measure.numberOfBeats || 4), 0);
+  }, [song?.measures]);
+
+  // Calculate current position in total beats
+  const currentPosition = React.useMemo(() => {
+    if (!song?.measures) return 0;
+    const sortedMeasures = [...song.measures].sort((a, b) => a.measureNumber - b.measureNumber);
+    let position = 0;
+    for (const measure of sortedMeasures) {
+      if (measure.measureNumber < currentMeasure) {
+        position += measure.numberOfBeats || 4;
+      } else if (measure.measureNumber === currentMeasure) {
+        position += currentBeat;
+        break;
+      }
+    }
+    return position;
+  }, [song?.measures, currentMeasure, currentBeat]);
+
+  // Playback timing logic
+  React.useEffect(() => {
+    if (!isPlaying || !song?.measures) return;
+
+    const beatDuration = 60000 / bpm; // milliseconds per beat
+    const interval = setInterval(() => {
+      setCurrentBeat(prevBeat => {
+        setCurrentMeasure(prevMeasure => {
+          const sortedMeasures = [...song.measures].sort((a, b) => a.measureNumber - b.measureNumber);
+          const currentMeasureData = sortedMeasures.find(m => m.measureNumber === prevMeasure);
+          const maxBeats = currentMeasureData?.numberOfBeats || 4;
+
+          if (prevBeat < maxBeats) {
+            // Stay in current measure, advance beat
+            return prevMeasure;
+          } else {
+            // Move to next measure
+            const nextMeasureIndex = sortedMeasures.findIndex(m => m.measureNumber === prevMeasure) + 1;
+            if (nextMeasureIndex < sortedMeasures.length) {
+              return sortedMeasures[nextMeasureIndex].measureNumber;
+            } else {
+              // End of song - stop playback and reset
+              setIsPlaying(false);
+              return 1;
+            }
+          }
+        });
+
+        const sortedMeasures = [...song.measures].sort((a, b) => a.measureNumber - b.measureNumber);
+        const currentMeasureData = sortedMeasures.find(m => m.measureNumber === currentMeasure);
+        const maxBeats = currentMeasureData?.numberOfBeats || 4;
+
+        if (prevBeat < maxBeats) {
+          return prevBeat + 1;
+        } else {
+          return 1; // Reset to beat 1 of next measure
+        }
+      });
+    }, beatDuration);
+
+    return () => clearInterval(interval);
+  }, [isPlaying, bpm, song?.measures, currentMeasure]);
+
+  // Playback control handlers
+  const handlePlayPause = React.useCallback(() => {
+    setIsPlaying(prev => !prev);
+  }, []);
+
+  const handlePositionChange = React.useCallback((newPosition) => {
+    if (!song?.measures) return;
+
+    // Stop playback when manually changing position
+    setIsPlaying(false);
+
+    const sortedMeasures = [...song.measures].sort((a, b) => a.measureNumber - b.measureNumber);
+    let accumulatedBeats = 0;
+
+    for (const measure of sortedMeasures) {
+      const measureBeats = measure.numberOfBeats || 4;
+      if (accumulatedBeats + measureBeats >= newPosition) {
+        setCurrentMeasure(measure.measureNumber);
+        setCurrentBeat(newPosition - accumulatedBeats);
+        return;
+      }
+      accumulatedBeats += measureBeats;
+    }
+  }, [song?.measures]);
+
+  const handleBpmChange = React.useCallback((newBpm) => {
+    setBpm(newBpm);
+  }, []);
+
+  // Process measure data for pure components
+  const processedMeasures = React.useMemo(() => {
+    if (!song?.measures) return [];
+
+    const sortedMeasures = [...song.measures].sort((a, b) => a.measureNumber - b.measureNumber);
+
+    return sortedMeasures.map(measure => {
+      const beats = Array.from({ length: measure.numberOfBeats }, (_, i) => {
+        const beat = i + 1;
+        const chordsForBeat = (measure.chords || []).filter(chord => chord.beat === beat);
+        const lyricsForBeat = (measure.lyrics || []).filter(lyric => lyric.beat === beat);
+
+        return {
+          beat,
+          chordsForBeat,
+          lyricsForBeat
+        };
+      });
+
+      return {
+        measureNumber: measure.measureNumber,
+        beats
+      };
+    });
+  }, [song?.measures]);
 
   if (error) {
     return <div className={css.error}>Error loading song: {error.message}</div>;
@@ -77,9 +200,6 @@ export function SongMeasureViewer({ songId }) {
     );
   }
 
-  // Sort measures by measure number
-  const sortedMeasures = [...song.measures].sort((a, b) => a.measureNumber - b.measureNumber);
-
   return (
     <div className={css.songMeasureViewer}>
       <div className={css.songHeader}>
@@ -96,10 +216,24 @@ export function SongMeasureViewer({ songId }) {
       </div>
 
       <div className={css.measuresGrid}>
-        {sortedMeasures.map(measure => (
-          <MeasureCard key={measure.measureNumber} measure={measure} />
+        {processedMeasures.map(measureData => (
+          <MeasureCard
+            key={measureData.measureNumber}
+            measureData={measureData}
+            currentBeat={measureData.measureNumber === currentMeasure ? currentBeat : null}
+          />
         ))}
       </div>
+
+      <TransportControls
+        isPlaying={isPlaying}
+        onPlayPause={handlePlayPause}
+        currentPosition={currentPosition}
+        totalBeats={totalBeats}
+        onPositionChange={handlePositionChange}
+        bpm={bpm}
+        onBpmChange={handleBpmChange}
+      />
 
       {editDialogOpen && (
         <EditSongDialog

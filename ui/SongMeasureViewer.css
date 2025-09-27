@@ -88,6 +88,23 @@
   border-right: none;
 }
 
+.currentBeat {
+  background-color: var(--primary-color) !important;
+  color: white;
+  z-index: 1;
+  position: relative;
+}
+
+.currentBeat .chord {
+  background-color: rgba(255, 255, 255, 0.9);
+  color: var(--primary-color);
+}
+
+.currentBeat .lyric {
+  color: white;
+  font-weight: 500;
+}
+
 .measureNumber {
   font-size: 9px;
   font-weight: bold;

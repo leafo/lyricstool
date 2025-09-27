@@ -1,0 +1,94 @@
+.transportControls {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: var(--content-bg);
+  border-top: 1px solid var(--border-color);
+  padding: 10px var(--padding);
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  z-index: 10;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.playPauseButton {
+  background: none;
+  border: 1px solid var(--border-color);
+  box-shadow: none;
+  cursor: pointer;
+  color: var(--primary-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.playPauseButton:hover {
+  color: var(--primary-hover-color, var(--primary-color));
+  opacity: 0.8;
+}
+
+.progressContainer {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.progressSlider {
+  width: 100%;
+  height: 6px;
+}
+
+.progressLabel {
+  font-size: 12px;
+  color: var(--muted-text-color);
+  text-align: center;
+}
+
+.bpmContainer {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.bpmLabel {
+  font-size: 14px;
+  color: var(--text-color);
+  font-weight: 500;
+}
+
+.bpmInput {
+  width: 60px;
+  padding: 5px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  font-size: 14px;
+  text-align: center;
+}
+
+.bpmInput:focus {
+  border-color: var(--primary-color);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .transportControls {
+    padding: 8px 10px;
+    gap: 10px;
+  }
+
+  .progressLabel {
+    font-size: 11px;
+  }
+
+
+  .bpmInput {
+    width: 50px;
+    font-size: 13px;
+  }
+}
