@@ -18,19 +18,30 @@ export function Dialog({ref, children, ...props}) {
     }
   }));
 
-  const handleClick = React.useCallback((e) => {
+  const mouseDownOutside = React.useRef(false);
+
+  const isOutsideDialog = React.useCallback((e) => {
     const dialogDimensions = dialogRef.current.getBoundingClientRect();
-    if (
+    return (
       e.clientX < dialogDimensions.left ||
       e.clientX > dialogDimensions.right ||
       e.clientY < dialogDimensions.top ||
       e.clientY > dialogDimensions.bottom
-    ) {
-      dialogRef.current.close();
-    }
+    );
   }, []);
 
-  return <dialog ref={dialogRef} onClick={handleClick} {...props} className={dialog}>
+  const handleMouseDown = React.useCallback((e) => {
+    mouseDownOutside.current = isOutsideDialog(e);
+  }, [isOutsideDialog]);
+
+  const handleMouseUp = React.useCallback((e) => {
+    if (mouseDownOutside.current && isOutsideDialog(e)) {
+      dialogRef.current.close();
+    }
+    mouseDownOutside.current = false;
+  }, [isOutsideDialog]);
+
+  return <dialog ref={dialogRef} onMouseDown={handleMouseDown} onMouseUp={handleMouseUp} {...props} className={dialog}>
     {children}
   </dialog>
 }
