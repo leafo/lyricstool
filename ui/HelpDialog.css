@@ -1,0 +1,15 @@
+.hotkeyList {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 16px;
+  margin: 0;
+
+  dt {
+    font-family: monospace;
+    font-weight: 600;
+  }
+
+  dd {
+    margin: 0;
+  }
+}

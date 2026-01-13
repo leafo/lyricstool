@@ -157,10 +157,30 @@
   opacity: 0.8;
 }
 
+.wordInputRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
 .wordInput {
+  flex: 1;
   padding: 5px;
   border: 1px solid var(--border-color);
   border-radius: 5px;
   box-sizing: border-box;
+}
+
+.helpButton {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  padding: 0;
+  font-weight: bold;
+  cursor: pointer;
+  border: 0;
+  background: var(--button-inactive-bg);
+  box-shadow: none;
+  color: inherit;
 }
 

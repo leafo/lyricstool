@@ -1,6 +1,7 @@
 import React from 'react';
 
 import { EditSongDialog } from './SongDialog.js';
+import { HelpDialog } from './HelpDialog.js';
 import css from './SongViewer.css';
 import {visiblyHidden} from './global.css';
 
@@ -215,6 +216,11 @@ const updateViewerState = (state, action) => {
         ...state,
         wordsRevealed: state.wordsRevealed + 1
       };
+    case "decrementWordsRevealed":
+      return {
+        ...state,
+        wordsRevealed: Math.max(state.wordsRevealed - 1, 0)
+      };
     case "incrementProgress":
       return {
         ...state,
@@ -256,8 +262,9 @@ const updateViewerState = (state, action) => {
 };
 
 const SongViewerContent = ({ song, error }) => {
-  const [minHint] = useConfig("min_hint");
+  const [minHint, setMinHint] = useConfig("min_hint");
   const [showWordBubbles, setShowWordBubbles] = useConfig("ui:showWordBubbles");
+  const [showHelpDialog, setShowHelpDialog] = React.useState(false);
 
   const [state, dispatch] = React.useReducer(updateViewerState, {
     progress: 0,
@@ -281,6 +288,7 @@ const SongViewerContent = ({ song, error }) => {
       goRevealWord: () => {
         dispatch({ type: "incrementWordsRevealed" })
       },
+      goPrevWord: () => dispatch({ type: "decrementWordsRevealed" }),
       setProgress: (progress) => dispatch({ type: "setProgress", progress })
     };
   }, [chunks.length, dispatch]);
@@ -297,13 +305,29 @@ const SongViewerContent = ({ song, error }) => {
         } else if (e.key === 'ArrowRight') {
           e.preventDefault();
           songActions.goNext();
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          setMinHint(Math.min((parseInt(minHint) || 0) + 1, 5));
+        } else if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          setMinHint(Math.max((parseInt(minHint) || 0) - 1, 0));
+        }
+      }
+
+      if (e.altKey) {
+        if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          songActions.goPrevWord();
+        } else if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          songActions.goRevealWord();
         }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [song, songActions]);
+  }, [song, songActions, minHint, setMinHint]);
 
   if (error) {
     return <p className={css.emptyMessage}>{error.toString()}</p>
@@ -321,11 +345,19 @@ const SongViewerContent = ({ song, error }) => {
         </div>
       </div>
 
-      {showWordBubbles && <WordInput
-        {...songActions}
-        chunks={chunks}
-        wordsRevealed={state.wordsRevealed}
-        progress={state.progress} />}
+      {showWordBubbles && <div className={css.wordInputRow}>
+        <WordInput
+          {...songActions}
+          chunks={chunks}
+          wordsRevealed={state.wordsRevealed}
+          progress={state.progress} />
+        <button
+          type="button"
+          className={css.helpButton}
+          onClick={() => setShowHelpDialog(true)}
+          title="Keyboard shortcuts"
+        >?</button>
+      </div>}
 
       <SongContent
         {...songActions}
@@ -354,6 +386,8 @@ const SongViewerContent = ({ song, error }) => {
           <span className={visiblyHidden}>Toggle Word Bubbles</span>
         </button>
       </section>
+
+      {showHelpDialog && <HelpDialog onClose={() => setShowHelpDialog(false)} />}
     </div>
   }
 }
