@@ -4,10 +4,11 @@
   "description": "",
   "license": "GPLv3",
   "author": "",
-  "type": "commonjs",
+  "type": "module",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "esbuild main.js --bundle --outfile=bundle.js --loader:.js=jsx --loader:.css=local-css --servedir=. --serve",
+    "test": "node --test"
   },
   "dependencies": {
     "esbuild": "^0.25.10",

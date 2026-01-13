@@ -11,6 +11,7 @@ import { useRoute, updateRoute } from '../router.js';
 import { shuffle } from '../util.js';
 
 import { chunkLyrics, hideWords, extractWords } from '../lyrics.js';
+import { wordsMatch } from '../wordMatch.js';
 import { useConfig } from '../config.js';
 
 import * as songs from '../songs.js';
@@ -99,10 +100,6 @@ const SongContent = React.memo(function SongContent({ chunks, progress, goNext, 
   </div>
 });
 
-const normalizeWord = (word) => {
-  return word.trim().toLowerCase().replace(/[^\w\s]/g, '');
-}
-
 const WordInput = React.memo(function WordInput({ chunks, progress, goRevealWord, wordsRevealed }) {
   const [currentValue, setCurrentValue] = React.useState("");
 
@@ -121,7 +118,7 @@ const WordInput = React.memo(function WordInput({ chunks, progress, goRevealWord
       return false;
     }
 
-    if (normalizeWord(value) === normalizeWord(nextWord)) {
+    if (wordsMatch(value, nextWord)) {
       goRevealWord();
       setCurrentValue("");
       return true;
