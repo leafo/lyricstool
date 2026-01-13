@@ -128,7 +128,7 @@ export function OcrButton({onSuccess}) {
 }
 
 
-export function SongForm({ref, onSubmit, handleDelete, song, loading, submitLabel}) {
+export function SongForm({ref, onSubmit, handleDelete, handleCopy, song, loading, submitLabel}) {
   const formRef = React.useRef();
   const [measuresValue, setMeasuresValue] = React.useState(
     song?.measures ? JSON.stringify(song.measures, null, 2) : ''
@@ -253,9 +253,20 @@ export function SongForm({ref, onSubmit, handleDelete, song, loading, submitLabe
 
     <div className={css.formButtons}>
       <button type="submit" disabled={loading}>{submitLabel || 'Save'}</button>
-      {handleDelete && <details className={css.deleteSong}>
-        <summary>Delete...</summary>
-        <button type="button" onClick={handleDelete}>Delete</button>
+      {(handleCopy || handleDelete) && <details className={css.toolsMenu}>
+        <summary>Tools</summary>
+        <div className={css.toolsMenuContent}>
+          {handleCopy && (
+            <button type="button" onClick={handleCopy} disabled={loading}>
+              Copy Song
+            </button>
+          )}
+          {handleDelete && (
+            <button type="button" onClick={handleDelete} disabled={loading}>
+              Delete Song
+            </button>
+          )}
+        </div>
       </details>}
     </div>
   </form>
@@ -293,7 +304,33 @@ export function NewSongDialog({onClose}) {
 export function EditSongDialog({songId, onClose}) {
   const formRef = React.useRef();
   const [loading, setLoading] = React.useState(false);
+  const [copySuccess, setCopySuccess] = React.useState(false);
   const [song, error] = songs.useSong(songId);
+
+  const handleCopy = React.useCallback(async () => {
+    if (!song) return;
+
+    const songData = {
+      type: "lyricstool_song",
+      version: 1,
+      data: {
+        title: song.title,
+        artist: song.artist || '',
+        lyrics: song.lyrics || '',
+        notes: song.notes || '',
+        measures: song.measures || null
+      }
+    };
+
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(songData));
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+      alert('Failed to copy to clipboard');
+    }
+  }, [song]);
 
   // TODO: handle errors
   const handleSave = React.useCallback(async (e) => {
@@ -327,8 +364,64 @@ export function EditSongDialog({songId, onClose}) {
 
   return <Dialog onClose={onClose}>
     <h2>Edit Song</h2>
+    {copySuccess && <p className={css.successMessage}>Song copied to clipboard!</p>}
     {error && <p>{error.toString()}</p>}
-    {song && <SongForm ref={formRef} onSubmit={handleSave} handleDelete={handleDelete} song={song} loading={loading} />}
+    {song && <SongForm ref={formRef} onSubmit={handleSave} handleDelete={handleDelete} handleCopy={handleCopy} song={song} loading={loading} />}
+  </Dialog>
+}
+
+export function PasteSongDialog({songData, onClose}) {
+  const [loading, setLoading] = React.useState(false);
+
+  const handleConfirm = React.useCallback(async () => {
+    if (loading) return;
+
+    setLoading(true);
+    try {
+      const newSong = {
+        title: songData.title,
+        artist: songData.artist || '',
+        lyrics: songData.lyrics || '',
+        notes: songData.notes || '',
+        measures: songData.measures || null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      await songs.insertSong(newSong);
+      onClose();
+    } catch (err) {
+      console.error('Failed to create song:', err);
+      alert('Failed to create song: ' + err.message);
+      setLoading(false);
+    }
+  }, [songData, loading, onClose]);
+
+  const lyricsPreview = songData.lyrics
+    ? (songData.lyrics.length > 200 ? songData.lyrics.substring(0, 200) + '...' : songData.lyrics)
+    : null;
+
+  return <Dialog onClose={onClose}>
+    <h2>Paste Song</h2>
+    <p>Create a new song from clipboard data?</p>
+
+    <div className={css.pastePreview}>
+      <p><strong>Title:</strong> {songData.title}</p>
+      {songData.artist && <p><strong>Artist:</strong> {songData.artist}</p>}
+      {lyricsPreview && (
+        <p><strong>Lyrics:</strong><br /><span className={css.lyricsPreview}>{lyricsPreview}</span></p>
+      )}
+      {songData.measures && songData.measures.length > 0 && (
+        <p><strong>Measures:</strong> {songData.measures.length} measures</p>
+      )}
+    </div>
+
+    <div className={css.formButtons}>
+      <button type="button" onClick={handleConfirm} disabled={loading}>
+        {loading ? 'Creating...' : 'Create Song'}
+      </button>
+      <button type="button" onClick={onClose} disabled={loading}>Cancel</button>
+    </div>
   </Dialog>
 }
 

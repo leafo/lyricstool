@@ -5,7 +5,7 @@ import { getSongsOrderedByIdDesc, useDependency } from '../songs.js';
 import * as css from './SongList.css';
 
 import { useRoute, useRouteToggle, updateRoute } from '../router.js';
-import { NewSongDialog, EditSongDialog } from './SongDialog.js';
+import { NewSongDialog, EditSongDialog, PasteSongDialog } from './SongDialog.js';
 import { useAsync, formatTimestamp } from '../util.js';
 
 const LoadingSpinner = ({ width = 50, height = 50 }) => (
@@ -51,8 +51,44 @@ export const SongList = () => {
   const [showNewSongDialog, setShowNewSongDialog] = useRouteToggle('newSong');
   const routeParams = useRoute(["editSongId"])
   const dbVersion = useDependency();
+  const [pastedSong, setPastedSong] = React.useState(null);
 
   const [songs, error, loading] = useAsync(() => getSongsOrderedByIdDesc(10, 0), [dbVersion]);
+
+  // Paste event listener for importing songs
+  React.useEffect(() => {
+    const handlePaste = (e) => {
+      // Skip if focus is on an input or textarea
+      const activeElement = document.activeElement;
+      if (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA') {
+        return;
+      }
+
+      const text = e.clipboardData?.getData('text');
+      if (!text) return;
+
+      try {
+        const parsed = JSON.parse(text);
+
+        // Validate it's our format
+        if (parsed.type !== 'lyricstool_song') return;
+        if (!parsed.data || typeof parsed.data !== 'object') return;
+        if (!parsed.data.title) return;
+
+        // Prevent default to avoid pasting elsewhere
+        e.preventDefault();
+
+        // Show confirmation dialog
+        setPastedSong(parsed.data);
+      } catch (err) {
+        // Not valid JSON or not our format - silently ignore
+        return;
+      }
+    };
+
+    document.addEventListener('paste', handlePaste);
+    return () => document.removeEventListener('paste', handlePaste);
+  }, []);
 
   if (error) {
     return <p>Failed to load songs: {error.toString()}</p>
@@ -77,6 +113,7 @@ export const SongList = () => {
     </div>
     {showNewSongDialog && <NewSongDialog onClose={() => setShowNewSongDialog(false)} />}
     {routeParams.editSongId && <EditSongDialog songId={routeParams.editSongId} onClose={() => updateRoute({ editSongId: false })} />}
+    {pastedSong && <PasteSongDialog songData={pastedSong} onClose={() => setPastedSong(null)} />}
   </>
 };
 
