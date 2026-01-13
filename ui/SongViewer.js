@@ -73,27 +73,29 @@ const SongContent = React.memo(function SongContent({ chunks, progress, goNext, 
   }
 
   return <div className={css.songContent}>
-    <div className={css.buttonOverlay}>
-      <button onClick={goPrev} className={css.prevButton}>Prev</button>
-      <button disabled={progress === chunks.length} onClick={goNext} className={css.nextButton}>Next</button>
+    <div className={css.scrollWrapper}>
+      <div className={css.buttonOverlay}>
+        <button onClick={goPrev} className={css.prevButton}>Prev</button>
+        <button disabled={progress === chunks.length} onClick={goNext} className={css.nextButton}>Next</button>
 
-      <button onClick={goHint} className={css.hintButton}>Hint</button>
-      <button className={css.revealWordButton} onClick={goRevealWord}>Reveal Word</button>
-    </div>
+        <button onClick={goHint} className={css.hintButton}>Hint</button>
+        <button className={css.revealWordButton} onClick={goRevealWord}>Reveal Word</button>
+      </div>
 
-    <ul>
-      {chunks.slice(0, progress + 1).map((chunk, idx) => {
-        if (idx >= progress) {
-          if (hintLevel > 0 || wordsRevealed > 0) {
-            return <SongChunk key={idx} chunk={chunk} hintLevel={hintLevel} wordsRevealed={wordsRevealed} goNext={goNext} />
-          } else {
-            return null
+      <ul>
+        {chunks.slice(0, progress + 1).map((chunk, idx) => {
+          if (idx >= progress) {
+            if (hintLevel > 0 || wordsRevealed > 0) {
+              return <SongChunk key={idx} chunk={chunk} hintLevel={hintLevel} wordsRevealed={wordsRevealed} goNext={goNext} />
+            } else {
+              return null
+            }
           }
-        }
 
-        return <SongChunk key={idx} chunk={chunk} />
-      })}
-    </ul>
+          return <SongChunk key={idx} chunk={chunk} />
+        })}
+      </ul>
+    </div>
   </div>
 });
 

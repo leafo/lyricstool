@@ -35,20 +35,23 @@
   border-radius: var(--border-radius);
   flex: 1;
   display: flex;
-  position: relative;
   min-height: 0;
   overflow: hidden;
 
+  .scrollWrapper {
+    flex: 1;
+    overflow-y: auto;
+    container-type: size;
+    min-height: 0;
+  }
+
   ul {
     line-height: 1.5;
-    flex: 1;
     margin: 0;
     padding: var(--padding);
     display: flex;
     flex-direction: column;
     gap: 10px;
-    overflow-y: auto;
-    max-height: 100%;
   }
 }
 
@@ -65,11 +68,13 @@
 }
 
 .buttonOverlay {
-  position: absolute;
-  top: var(--padding);
-  bottom: var(--padding);
-  left: var(--padding);
-  right: var(--padding);
+  position: sticky;
+  top: 0;
+  height: 100cqh;
+  margin-bottom: -100cqh;
+  z-index: 1;
+  padding: var(--padding);
+  box-sizing: border-box;
 
   display: grid;
   grid-template-columns: 1fr 1fr;
