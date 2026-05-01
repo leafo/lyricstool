@@ -50,14 +50,13 @@
 }
 
 .dropHint {
-  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   border: 2px dashed var(--border-color);
   border-radius: var(--border-radius);
   background: var(--content-bg);
-  min-height: 200px;
+  height: 160px;
 
   p {
     margin: 0;
@@ -92,6 +91,56 @@
 
 .waveformVisible:active {
   cursor: grabbing;
+}
+
+.tabs {
+  display: flex;
+  gap: 2px;
+  border-bottom: 2px solid var(--border-color);
+  margin-top: var(--gap);
+}
+
+.tab {
+  background: transparent;
+  color: var(--text-color);
+  box-shadow: none;
+  padding: 8px 16px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: var(--border-radius) var(--border-radius) 0 0;
+  font-size: 14px;
+  margin-bottom: -2px;
+}
+
+.tab:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.tabActive {
+  background: var(--content-bg);
+  border-color: var(--border-color);
+  border-bottom: 2px solid var(--content-bg);
+  font-weight: bold;
+}
+
+.lyricsSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+
+.lyricsTextarea {
+  width: 100%;
+  min-height: 240px;
+  padding: 8px 10px;
+  font-family: monospace;
+  font-size: 14px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  background: var(--content-bg);
+  color: var(--text-color);
+  resize: vertical;
+  box-sizing: border-box;
 }
 
 .tapPadGroup {

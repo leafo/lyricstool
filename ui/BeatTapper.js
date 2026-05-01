@@ -44,17 +44,22 @@ async function chooseJsonFile() {
   });
 }
 
-function parseBeatExport(parsed) {
+function parseSession(parsed) {
   if (Array.isArray(parsed) && parsed.every((t) => typeof t === 'number')) {
-    return parsed.map((time) => ({ time, type: 'beat' }));
+    return {
+      beats: parsed.map((time) => ({ time, type: 'beat' })),
+      lyrics: null,
+    };
   }
   if (parsed && typeof parsed === 'object' && Array.isArray(parsed.beats)) {
-    return parsed.beats
+    const beats = parsed.beats
       .map((b) => ({
         time: typeof b.time === 'number' ? b.time : NaN,
         type: b.type === 'downbeat' ? 'downbeat' : 'beat',
       }))
       .filter((b) => isFinite(b.time) && b.time >= 0);
+    const lyrics = typeof parsed.lyrics === 'string' ? parsed.lyrics : null;
+    return { beats, lyrics };
   }
   return null;
 }
@@ -63,6 +68,13 @@ function formatTime(seconds) {
   if (!isFinite(seconds)) return '0:00.000';
   const m = Math.floor(seconds / 60);
   const s = (seconds - m * 60).toFixed(3).padStart(6, '0');
+  return `${m}:${s}`;
+}
+
+function formatInlineTime(seconds) {
+  if (!isFinite(seconds)) return '0:00.00';
+  const m = Math.floor(seconds / 60);
+  const s = (seconds - m * 60).toFixed(2).padStart(5, '0');
   return `${m}:${s}`;
 }
 
@@ -76,12 +88,15 @@ export const BeatTapper = () => {
   const [markers, setMarkers] = useState([]);
   const [tapFlash, setTapFlash] = useState(null);
   const [showCalibrate, setShowCalibrate] = useState(false);
+  const [activeTab, setActiveTab] = useState('beats');
+  const [lyricsText, setLyricsText] = useState('');
 
   const [latencyMs] = useConfig('tap_latency_ms');
 
   const audioRef = useRef(null);
   const audioContextRef = useRef(null);
   const markerIdRef = useRef(0);
+  const lyricsTextareaRef = useRef(null);
 
   const loadFile = useCallback(async (f) => {
     if (!f.type.startsWith('audio/')) {
@@ -207,26 +222,36 @@ export const BeatTapper = () => {
     if (audio) audio.currentTime = time;
   }, []);
 
+  const insertLyricTimestamp = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const ta = lyricsTextareaRef.current;
+    if (!ta) return;
+
+    const time = Math.max(0, audio.currentTime - (latencyMs || 0) / 1000);
+    const stamp = `[${formatInlineTime(time)}]`;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+
+    setLyricsText((prev) => prev.slice(0, start) + stamp + prev.slice(end));
+
+    const newPos = start + stamp.length;
+    setTimeout(() => {
+      const el = lyricsTextareaRef.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(newPos, newPos);
+    }, 0);
+  }, [latencyMs]);
+
   useEffect(() => {
     const handler = (e) => {
       const ae = document.activeElement;
       if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'AUDIO')) return;
 
-      if (e.key === 't' || e.key === 'T') {
-        e.preventDefault();
-        addMarker('beat');
-      } else if (e.key === 'r' || e.key === 'R') {
-        e.preventDefault();
-        addMarker('downbeat');
-      } else if (e.key === ' ') {
+      if (e.key === ' ') {
         e.preventDefault();
         togglePlay();
-      } else if (e.key === 'u' || e.key === 'U' || e.key === 'Backspace') {
-        e.preventDefault();
-        removeMarkerBeforeCursor();
-      } else if (e.key === 'x' || e.key === 'X') {
-        e.preventDefault();
-        removeMarkerAfterCursor();
       } else if (e.key === 'ArrowLeft') {
         e.preventDefault();
         const audio = audioRef.current;
@@ -235,11 +260,25 @@ export const BeatTapper = () => {
         e.preventDefault();
         const audio = audioRef.current;
         if (audio && audioBuffer) audio.currentTime = Math.min(audioBuffer.duration, audio.currentTime + 1);
+      } else if (activeTab === 'beats') {
+        if (e.key === 't' || e.key === 'T') {
+          e.preventDefault();
+          addMarker('beat');
+        } else if (e.key === 'r' || e.key === 'R') {
+          e.preventDefault();
+          addMarker('downbeat');
+        } else if (e.key === 'u' || e.key === 'U' || e.key === 'Backspace') {
+          e.preventDefault();
+          removeMarkerBeforeCursor();
+        } else if (e.key === 'x' || e.key === 'X') {
+          e.preventDefault();
+          removeMarkerAfterCursor();
+        }
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [addMarker, togglePlay, removeMarkerBeforeCursor, removeMarkerAfterCursor, audioBuffer]);
+  }, [addMarker, togglePlay, removeMarkerBeforeCursor, removeMarkerAfterCursor, audioBuffer, activeTab]);
 
   const handleDragEnter = useCallback((e) => {
     e.preventDefault();
@@ -266,19 +305,10 @@ export const BeatTapper = () => {
   }, [loadFile]);
 
   const exportPayload = useCallback(() => ({
-    version: 2,
+    version: 3,
     beats: markers.map((m) => ({ time: m.time, type: m.type })),
-  }), [markers]);
-
-  const onCopyTimestamps = useCallback(async () => {
-    const data = JSON.stringify(exportPayload());
-    try {
-      await navigator.clipboard.writeText(data);
-    } catch (err) {
-      console.error('Failed to copy:', err);
-      alert('Failed to copy to clipboard');
-    }
-  }, [exportPayload]);
+    lyrics: lyricsText,
+  }), [markers, lyricsText]);
 
   const onLoadJson = useCallback(async () => {
     let f;
@@ -295,22 +325,34 @@ export const BeatTapper = () => {
       alert(`Failed to read JSON: ${err.message || err}`);
       return;
     }
-    const loaded = parseBeatExport(parsed);
+    const loaded = parseSession(parsed);
     if (!loaded) {
-      alert('Unrecognized beats JSON format.');
+      alert('Unrecognized session JSON format.');
       return;
     }
-    if (markers.length > 0 && !confirm(`Replace ${markers.length} existing marker${markers.length === 1 ? '' : 's'} with ${loaded.length} from file?`)) {
+
+    const replaceParts = [];
+    if (markers.length > 0) {
+      replaceParts.push(`replace ${markers.length} existing marker${markers.length === 1 ? '' : 's'} with ${loaded.beats.length}`);
+    }
+    if (lyricsText && loaded.lyrics !== null && loaded.lyrics !== lyricsText) {
+      replaceParts.push('replace existing lyrics');
+    }
+    if (replaceParts.length > 0 && !confirm(`This will ${replaceParts.join(' and ')}. Continue?`)) {
       return;
     }
-    loaded.sort((a, b) => a.time - b.time);
-    const withIds = loaded.map((m) => ({
+
+    const sortedBeats = [...loaded.beats].sort((a, b) => a.time - b.time);
+    const withIds = sortedBeats.map((m) => ({
       id: ++markerIdRef.current,
       time: m.time,
       type: m.type,
     }));
     setMarkers(withIds);
-  }, [markers.length]);
+    if (loaded.lyrics !== null) {
+      setLyricsText(loaded.lyrics);
+    }
+  }, [markers.length, lyricsText]);
 
   const onDownloadJson = useCallback(() => {
     const data = JSON.stringify(exportPayload(), null, 2);
@@ -318,8 +360,8 @@ export const BeatTapper = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    const base = file?.name ? file.name.replace(/\.[^.]+$/, '') : 'beats';
-    a.download = `${base}.beats.json`;
+    const base = file?.name ? file.name.replace(/\.[^.]+$/, '') : 'session';
+    a.download = `${base}.session.json`;
     a.click();
     URL.revokeObjectURL(url);
   }, [exportPayload, file]);
@@ -337,6 +379,12 @@ export const BeatTapper = () => {
       <button type="button" onClick={() => setShowCalibrate(true)}>
         Latency: {latencyMs ?? 0} ms
       </button>
+      {audioBuffer && (
+        <>
+          <button type="button" onClick={onDownloadJson}>Download .json</button>
+          <button type="button" onClick={onLoadJson}>Load .json...</button>
+        </>
+      )}
       {file && <span className={css.filename}>{file.name}</span>}
     </div>
 
@@ -364,7 +412,24 @@ export const BeatTapper = () => {
       onSeek={onSeek}
     />}
 
-    {audioBuffer && <div className={css.tapPadGroup}>
+    <div className={css.tabs} role="tablist">
+      <button
+        type="button"
+        role="tab"
+        aria-selected={activeTab === 'beats'}
+        className={`${css.tab} ${activeTab === 'beats' ? css.tabActive : ''}`}
+        onClick={() => setActiveTab('beats')}
+      >Beats</button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={activeTab === 'lyrics'}
+        className={`${css.tab} ${activeTab === 'lyrics' ? css.tabActive : ''}`}
+        onClick={() => setActiveTab('lyrics')}
+      >Lyrics</button>
+    </div>
+
+    {activeTab === 'beats' && audioBuffer && <div className={css.tapPadGroup}>
       <button
         type="button"
         className={`${css.tapPad} ${css.tapPadDownbeat} ${tapFlash === 'downbeat' ? css.tapFlash : ''}`}
@@ -383,14 +448,11 @@ export const BeatTapper = () => {
       </button>
     </div>}
 
-    {audioBuffer && (
+    {activeTab === 'beats' && (
       <div className={css.markerSection}>
         <div className={css.markerHeader}>
           <h3>Beat markers ({markers.length})</h3>
           <div className={css.markerActions}>
-            <button type="button" onClick={onCopyTimestamps} disabled={markers.length === 0}>Copy timestamps</button>
-            <button type="button" onClick={onDownloadJson} disabled={markers.length === 0}>Download .json</button>
-            <button type="button" onClick={onLoadJson}>Load .json...</button>
             <button type="button" onClick={clearAll} disabled={markers.length === 0}>Clear all</button>
           </div>
         </div>
@@ -398,7 +460,7 @@ export const BeatTapper = () => {
           <ul className={css.markerList}>
             {markers.map((m) => (
               <li key={m.id} className={m.type === 'downbeat' ? css.markerDownbeat : ''}>
-                <button type="button" className={css.markerSeek} onClick={() => onSeek(m.time)}>
+                <button type="button" className={css.markerSeek} onClick={() => onSeek(m.time)} disabled={!audioBuffer}>
                   {m.type === 'downbeat' ? '▸ ' : ''}{formatTime(m.time)}
                 </button>
                 <button type="button" className={css.markerDelete} onClick={() => deleteMarker(m.id)} aria-label="Delete marker">×</button>
@@ -406,11 +468,41 @@ export const BeatTapper = () => {
             ))}
           </ul>
         ) : (
-          <p className={css.emptyMessage}>No markers yet. Press <kbd>T</kbd> (beat) or <kbd>R</kbd> (downbeat) while playing.</p>
+          <p className={css.emptyMessage}>
+            {audioBuffer
+              ? <>No markers yet. Press <kbd>T</kbd> (beat) or <kbd>R</kbd> (downbeat) while playing.</>
+              : <>No markers. Load an audio file to start tapping, or load a saved session.</>}
+          </p>
         )}
-        <p className={css.help}>
-          <strong>Keys:</strong> <kbd>T</kbd> beat · <kbd>R</kbd> downbeat · <kbd>Space</kbd> play/pause · <kbd>U</kbd>/<kbd>Backspace</kbd> delete before cursor · <kbd>X</kbd> delete after cursor · <kbd>←</kbd>/<kbd>→</kbd> seek 1s · click waveform to seek
-        </p>
+        {audioBuffer && (
+          <p className={css.help}>
+            <strong>Keys:</strong> <kbd>T</kbd> beat · <kbd>R</kbd> downbeat · <kbd>Space</kbd> play/pause · <kbd>U</kbd>/<kbd>Backspace</kbd> delete before cursor · <kbd>X</kbd> delete after cursor · <kbd>←</kbd>/<kbd>→</kbd> seek 1s · click waveform to seek
+          </p>
+        )}
+      </div>
+    )}
+
+    {activeTab === 'lyrics' && (
+      <div className={css.lyricsSection}>
+        <textarea
+          ref={lyricsTextareaRef}
+          className={css.lyricsTextarea}
+          value={lyricsText}
+          onChange={(e) => setLyricsText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.code === 'Space' && (e.ctrlKey || e.metaKey)) {
+              e.preventDefault();
+              insertLyricTimestamp();
+            }
+          }}
+          placeholder="Paste or type lyrics here. With audio loaded, press Ctrl+Space to insert a timestamp at the caret."
+          spellCheck={false}
+        />
+        {audioBuffer && (
+          <p className={css.help}>
+            <strong>Keys (in textarea):</strong> <kbd>Ctrl</kbd>+<kbd>Space</kbd> insert timestamp at caret · <strong>Global:</strong> <kbd>Space</kbd> play/pause · <kbd>←</kbd>/<kbd>→</kbd> seek 1s · click waveform to seek
+          </p>
+        )}
       </div>
     )}
 
