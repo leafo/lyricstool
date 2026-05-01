@@ -99,6 +99,7 @@ export const SongList = () => {
       <nav>
         <h2>Songs List</h2>
         <button onClick={() => setShowNewSongDialog(true)}>New Song...</button>
+        <button onClick={() => updateRoute({ beatTapper: '1' })}>Beat Tapper</button>
       </nav>
       {loading && <LoadingSpinner />}
 

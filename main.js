@@ -7,6 +7,7 @@ import { createRoot } from 'react-dom/client';
 import { SongList } from './ui/SongList.js';
 import { SongViewer } from './ui/SongViewer.js';
 import { SongMeasureViewer } from './ui/SongMeasureViewer.js';
+import { BeatTapper } from './ui/BeatTapper.js';
 
 import { SettingsDialog } from './ui/SettingsDialog.js';
 import { Header } from './ui/Header.js';
@@ -66,7 +67,11 @@ function PromptTest() {
 }
 
 function MainContent() {
-  const routeParams = useRoute(["viewSongId", "display"]);
+  const routeParams = useRoute(["viewSongId", "display", "beatTapper"]);
+
+  if (routeParams.beatTapper) {
+    return <BeatTapper />;
+  }
 
   if (routeParams.viewSongId) {
     const display = routeParams.display || 'lyrics';

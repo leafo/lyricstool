@@ -1,0 +1,219 @@
+
+.beatTapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  padding: var(--padding);
+  flex: 1;
+  position: relative;
+}
+
+.beatTapper.dragActive {
+  outline: 3px dashed var(--button-enabled-bg);
+  outline-offset: -8px;
+  background-color: rgba(82, 122, 66, 0.06);
+}
+
+.toolbar {
+  display: flex;
+  gap: var(--gap);
+  align-items: center;
+  flex-wrap: wrap;
+
+  h2 {
+    margin: 0;
+    font-size: 16px;
+    margin-right: auto;
+  }
+}
+
+.filename {
+  font-family: monospace;
+  font-size: 13px;
+  color: var(--muted-text-color);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.error {
+  color: var(--error-color);
+  margin: 0;
+  padding: 8px 10px;
+  background: #fde8e8;
+  border: 1px solid var(--error-color);
+  border-radius: var(--border-radius);
+}
+
+.statusMessage {
+  margin: 0;
+  color: var(--muted-text-color);
+}
+
+.dropHint {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed var(--border-color);
+  border-radius: var(--border-radius);
+  background: var(--content-bg);
+  min-height: 200px;
+
+  p {
+    margin: 0;
+    font-size: 16px;
+    color: var(--muted-text-color);
+  }
+}
+
+.audioPlayer {
+  width: 100%;
+}
+
+.waveformContainer {
+  position: relative;
+  width: 100%;
+  height: 160px;
+  background: var(--content-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  overflow: hidden;
+}
+
+.waveformStatic,
+.waveformOverlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.waveformStatic {
+  z-index: 1;
+}
+
+.waveformOverlay {
+  z-index: 2;
+  cursor: crosshair;
+}
+
+.tapPad {
+  width: 100%;
+  height: 140px;
+  font-size: 28px;
+  font-weight: bold;
+  background: var(--button-enabled-bg);
+  border: 2px solid var(--button-bg);
+  border-radius: var(--border-radius);
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  transition: transform 60ms ease-out, filter 60ms ease-out;
+}
+
+.tapPad:active,
+.tapPad.tapFlash {
+  transform: scale(0.985);
+  filter: brightness(1.25);
+}
+
+.markerSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  background: var(--content-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  padding: var(--padding);
+}
+
+.markerHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--gap);
+  flex-wrap: wrap;
+
+  h3 {
+    margin: 0;
+    font-size: 14px;
+    margin-right: auto;
+  }
+}
+
+.markerActions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.markerList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 4px;
+
+  li {
+    display: flex;
+    align-items: stretch;
+    background: var(--beat-bg-color);
+    border: 1px solid var(--beat-border-color);
+    border-radius: var(--border-radius);
+    overflow: hidden;
+  }
+}
+
+.markerSeek {
+  flex: 1;
+  background: transparent;
+  color: var(--text-color);
+  box-shadow: none;
+  text-align: left;
+  font-family: monospace;
+  font-size: 13px;
+  padding: 4px 8px;
+  border-radius: 0;
+}
+
+.markerSeek:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.markerDelete {
+  background: transparent;
+  color: var(--muted-text-color);
+  box-shadow: none;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0 8px;
+  border-radius: 0;
+  border-left: 1px solid var(--beat-border-color);
+}
+
+.markerDelete:hover {
+  background: var(--error-color);
+  color: white;
+}
+
+.emptyMessage {
+  margin: 0;
+  color: var(--muted-text-color);
+}
+
+.help {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted-text-color);
+
+  kbd {
+    display: inline-block;
+    padding: 1px 5px;
+    background: var(--beat-bg-color);
+    border: 1px solid var(--beat-border-color);
+    border-radius: 3px;
+    font-family: monospace;
+    font-size: 11px;
+  }
+}
