@@ -27,6 +27,38 @@ async function chooseAudioFile() {
   });
 }
 
+async function chooseJsonFile() {
+  return new Promise((resolve, reject) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/json,.json';
+    input.onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) {
+        reject(new Error('No file selected'));
+        return;
+      }
+      resolve(file);
+    };
+    input.click();
+  });
+}
+
+function parseBeatExport(parsed) {
+  if (Array.isArray(parsed) && parsed.every((t) => typeof t === 'number')) {
+    return parsed.map((time) => ({ time, type: 'beat' }));
+  }
+  if (parsed && typeof parsed === 'object' && Array.isArray(parsed.beats)) {
+    return parsed.beats
+      .map((b) => ({
+        time: typeof b.time === 'number' ? b.time : NaN,
+        type: b.type === 'downbeat' ? 'downbeat' : 'beat',
+      }))
+      .filter((b) => isFinite(b.time) && b.time >= 0);
+  }
+  return null;
+}
+
 function formatTime(seconds) {
   if (!isFinite(seconds)) return '0:00.000';
   const m = Math.floor(seconds / 60);
@@ -42,7 +74,7 @@ export const BeatTapper = () => {
   const [error, setError] = useState(null);
   const [dragActive, setDragActive] = useState(false);
   const [markers, setMarkers] = useState([]);
-  const [tapFlash, setTapFlash] = useState(false);
+  const [tapFlash, setTapFlash] = useState(null);
   const [showCalibrate, setShowCalibrate] = useState(false);
 
   const [latencyMs] = useConfig('tap_latency_ms');
@@ -100,7 +132,7 @@ export const BeatTapper = () => {
     };
   }, []);
 
-  const addMarker = useCallback(() => {
+  const addMarker = useCallback((type = 'beat') => {
     const audio = audioRef.current;
     if (!audio || audio.paused) return;
     const time = Math.max(0, audio.currentTime - (latencyMs || 0) / 1000);
@@ -115,22 +147,39 @@ export const BeatTapper = () => {
         }
       }
       const without = closestIdx >= 0 ? prev.filter((_, i) => i !== closestIdx) : prev;
-      const next = [...without, { id: ++markerIdRef.current, time }];
+      const next = [...without, { id: ++markerIdRef.current, time, type }];
       next.sort((a, b) => a.time - b.time);
       return next;
     });
-    setTapFlash(true);
-    setTimeout(() => setTapFlash(false), 90);
+    setTapFlash(type);
+    setTimeout(() => setTapFlash(null), 90);
   }, [latencyMs]);
 
-  const undoMarker = useCallback(() => {
+  const removeMarkerBeforeCursor = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const cursorTime = audio.currentTime;
     setMarkers((prev) => {
-      if (prev.length === 0) return prev;
-      let maxIdx = 0;
-      for (let i = 1; i < prev.length; i++) {
-        if (prev[i].id > prev[maxIdx].id) maxIdx = i;
+      for (let i = prev.length - 1; i >= 0; i--) {
+        if (prev[i].time <= cursorTime) {
+          return prev.filter((_, j) => j !== i);
+        }
       }
-      return prev.filter((_, i) => i !== maxIdx);
+      return prev;
+    });
+  }, []);
+
+  const removeMarkerAfterCursor = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const cursorTime = audio.currentTime;
+    setMarkers((prev) => {
+      for (let i = 0; i < prev.length; i++) {
+        if (prev[i].time > cursorTime) {
+          return prev.filter((_, j) => j !== i);
+        }
+      }
+      return prev;
     });
   }, []);
 
@@ -165,13 +214,19 @@ export const BeatTapper = () => {
 
       if (e.key === 't' || e.key === 'T') {
         e.preventDefault();
-        addMarker();
+        addMarker('beat');
+      } else if (e.key === 'r' || e.key === 'R') {
+        e.preventDefault();
+        addMarker('downbeat');
       } else if (e.key === ' ') {
         e.preventDefault();
         togglePlay();
       } else if (e.key === 'u' || e.key === 'U' || e.key === 'Backspace') {
         e.preventDefault();
-        undoMarker();
+        removeMarkerBeforeCursor();
+      } else if (e.key === 'x' || e.key === 'X') {
+        e.preventDefault();
+        removeMarkerAfterCursor();
       } else if (e.key === 'ArrowLeft') {
         e.preventDefault();
         const audio = audioRef.current;
@@ -184,7 +239,7 @@ export const BeatTapper = () => {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [addMarker, togglePlay, undoMarker, audioBuffer]);
+  }, [addMarker, togglePlay, removeMarkerBeforeCursor, removeMarkerAfterCursor, audioBuffer]);
 
   const handleDragEnter = useCallback((e) => {
     e.preventDefault();
@@ -210,18 +265,55 @@ export const BeatTapper = () => {
     chooseAudioFile().then(loadFile).catch(() => {});
   }, [loadFile]);
 
+  const exportPayload = useCallback(() => ({
+    version: 2,
+    beats: markers.map((m) => ({ time: m.time, type: m.type })),
+  }), [markers]);
+
   const onCopyTimestamps = useCallback(async () => {
-    const data = JSON.stringify(markers.map((m) => m.time));
+    const data = JSON.stringify(exportPayload());
     try {
       await navigator.clipboard.writeText(data);
     } catch (err) {
       console.error('Failed to copy:', err);
       alert('Failed to copy to clipboard');
     }
-  }, [markers]);
+  }, [exportPayload]);
+
+  const onLoadJson = useCallback(async () => {
+    let f;
+    try {
+      f = await chooseJsonFile();
+    } catch (_) {
+      return;
+    }
+    let parsed;
+    try {
+      const text = await f.text();
+      parsed = JSON.parse(text);
+    } catch (err) {
+      alert(`Failed to read JSON: ${err.message || err}`);
+      return;
+    }
+    const loaded = parseBeatExport(parsed);
+    if (!loaded) {
+      alert('Unrecognized beats JSON format.');
+      return;
+    }
+    if (markers.length > 0 && !confirm(`Replace ${markers.length} existing marker${markers.length === 1 ? '' : 's'} with ${loaded.length} from file?`)) {
+      return;
+    }
+    loaded.sort((a, b) => a.time - b.time);
+    const withIds = loaded.map((m) => ({
+      id: ++markerIdRef.current,
+      time: m.time,
+      type: m.type,
+    }));
+    setMarkers(withIds);
+  }, [markers.length]);
 
   const onDownloadJson = useCallback(() => {
-    const data = JSON.stringify(markers.map((m) => m.time), null, 2);
+    const data = JSON.stringify(exportPayload(), null, 2);
     const blob = new Blob([data], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -230,7 +322,7 @@ export const BeatTapper = () => {
     a.download = `${base}.beats.json`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [markers, file]);
+  }, [exportPayload, file]);
 
   return <div
     className={`${css.beatTapper} ${dragActive ? css.dragActive : ''}`}
@@ -272,14 +364,24 @@ export const BeatTapper = () => {
       onSeek={onSeek}
     />}
 
-    {audioBuffer && <button
-      type="button"
-      className={`${css.tapPad} ${tapFlash ? css.tapFlash : ''}`}
-      onMouseDown={(e) => { e.preventDefault(); addMarker(); }}
-      onTouchStart={(e) => { e.preventDefault(); addMarker(); }}
-    >
-      Tap (or press T)
-    </button>}
+    {audioBuffer && <div className={css.tapPadGroup}>
+      <button
+        type="button"
+        className={`${css.tapPad} ${css.tapPadDownbeat} ${tapFlash === 'downbeat' ? css.tapFlash : ''}`}
+        onMouseDown={(e) => { e.preventDefault(); addMarker('downbeat'); }}
+        onTouchStart={(e) => { e.preventDefault(); addMarker('downbeat'); }}
+      >
+        Downbeat (R)
+      </button>
+      <button
+        type="button"
+        className={`${css.tapPad} ${tapFlash === 'beat' ? css.tapFlash : ''}`}
+        onMouseDown={(e) => { e.preventDefault(); addMarker('beat'); }}
+        onTouchStart={(e) => { e.preventDefault(); addMarker('beat'); }}
+      >
+        Beat (T)
+      </button>
+    </div>}
 
     {audioBuffer && (
       <div className={css.markerSection}>
@@ -288,25 +390,26 @@ export const BeatTapper = () => {
           <div className={css.markerActions}>
             <button type="button" onClick={onCopyTimestamps} disabled={markers.length === 0}>Copy timestamps</button>
             <button type="button" onClick={onDownloadJson} disabled={markers.length === 0}>Download .json</button>
+            <button type="button" onClick={onLoadJson}>Load .json...</button>
             <button type="button" onClick={clearAll} disabled={markers.length === 0}>Clear all</button>
           </div>
         </div>
         {markers.length > 0 ? (
           <ul className={css.markerList}>
             {markers.map((m) => (
-              <li key={m.id}>
+              <li key={m.id} className={m.type === 'downbeat' ? css.markerDownbeat : ''}>
                 <button type="button" className={css.markerSeek} onClick={() => onSeek(m.time)}>
-                  {formatTime(m.time)}
+                  {m.type === 'downbeat' ? '▸ ' : ''}{formatTime(m.time)}
                 </button>
                 <button type="button" className={css.markerDelete} onClick={() => deleteMarker(m.id)} aria-label="Delete marker">×</button>
               </li>
             ))}
           </ul>
         ) : (
-          <p className={css.emptyMessage}>No markers yet. Press <kbd>T</kbd> or click the tap pad while playing.</p>
+          <p className={css.emptyMessage}>No markers yet. Press <kbd>T</kbd> (beat) or <kbd>R</kbd> (downbeat) while playing.</p>
         )}
         <p className={css.help}>
-          <strong>Keys:</strong> <kbd>T</kbd> tap · <kbd>Space</kbd> play/pause · <kbd>U</kbd>/<kbd>Backspace</kbd> undo last · <kbd>←</kbd>/<kbd>→</kbd> seek 1s · click waveform to seek
+          <strong>Keys:</strong> <kbd>T</kbd> beat · <kbd>R</kbd> downbeat · <kbd>Space</kbd> play/pause · <kbd>U</kbd>/<kbd>Backspace</kbd> delete before cursor · <kbd>X</kbd> delete after cursor · <kbd>←</kbd>/<kbd>→</kbd> seek 1s · click waveform to seek
         </p>
       </div>
     )}

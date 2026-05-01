@@ -94,10 +94,16 @@
   cursor: grabbing;
 }
 
-.tapPad {
+.tapPadGroup {
+  display: flex;
+  gap: var(--gap);
   width: 100%;
+}
+
+.tapPad {
+  flex: 1;
   height: 140px;
-  font-size: 28px;
+  font-size: 24px;
   font-weight: bold;
   background: var(--button-enabled-bg);
   border: 2px solid var(--button-bg);
@@ -106,6 +112,11 @@
   -webkit-user-select: none;
   touch-action: manipulation;
   transition: transform 60ms ease-out, filter 60ms ease-out;
+}
+
+.tapPadDownbeat {
+  background: #e67e22;
+  border-color: #b8651b;
 }
 
 .tapPad:active,
@@ -158,6 +169,16 @@
     border: 1px solid var(--beat-border-color);
     border-radius: var(--border-radius);
     overflow: hidden;
+  }
+
+  li.markerDownbeat {
+    background: rgba(230, 126, 34, 0.15);
+    border-color: #e67e22;
+
+    .markerSeek {
+      font-weight: bold;
+      color: #b8651b;
+    }
   }
 }
 

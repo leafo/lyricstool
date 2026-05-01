@@ -11,6 +11,8 @@ const MAX_OFFSCREEN_WIDTH = 16384;
 const WAVEFORM_COLOR = '#527a42';
 const CURSOR_COLOR = '#d32f2f';
 const MARKER_COLOR = '#2c5aa0';
+const DOWNBEAT_COLOR = '#e67e22';
+const DOWNBEAT_TRIANGLE_SIZE = 6;
 
 function renderWaveformOffscreen(audioBuffer, pixelsPerSecond) {
   const width = Math.max(1, Math.ceil(audioBuffer.duration * pixelsPerSecond));
@@ -129,6 +131,7 @@ export const Waveform = ({ audioBuffer, audioRef, markers, onSeek }) => {
           ctx.lineWidth = 1;
           ctx.beginPath();
           for (const m of markers) {
+            if (m.type === 'downbeat') continue;
             const mx = m.time * pps - srcX;
             if (mx >= -1 && mx <= viewWidth + 1) {
               const x = Math.round(mx) + 0.5;
@@ -137,6 +140,34 @@ export const Waveform = ({ audioBuffer, audioRef, markers, onSeek }) => {
             }
           }
           ctx.stroke();
+
+          ctx.strokeStyle = DOWNBEAT_COLOR;
+          ctx.fillStyle = DOWNBEAT_COLOR;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          for (const m of markers) {
+            if (m.type !== 'downbeat') continue;
+            const mx = m.time * pps - srcX;
+            if (mx >= -1 && mx <= viewWidth + 1) {
+              const x = Math.round(mx) + 0.5;
+              ctx.moveTo(x, 0);
+              ctx.lineTo(x, viewHeight);
+            }
+          }
+          ctx.stroke();
+          for (const m of markers) {
+            if (m.type !== 'downbeat') continue;
+            const mx = m.time * pps - srcX;
+            if (mx >= -DOWNBEAT_TRIANGLE_SIZE && mx <= viewWidth + DOWNBEAT_TRIANGLE_SIZE) {
+              const x = Math.round(mx);
+              ctx.beginPath();
+              ctx.moveTo(x, 0);
+              ctx.lineTo(x - DOWNBEAT_TRIANGLE_SIZE, DOWNBEAT_TRIANGLE_SIZE);
+              ctx.lineTo(x + DOWNBEAT_TRIANGLE_SIZE, DOWNBEAT_TRIANGLE_SIZE);
+              ctx.closePath();
+              ctx.fill();
+            }
+          }
 
           ctx.strokeStyle = CURSOR_COLOR;
           ctx.lineWidth = 2;
