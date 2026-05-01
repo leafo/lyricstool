@@ -255,11 +255,13 @@ export const BeatTapper = () => {
       } else if (e.key === 'ArrowLeft') {
         e.preventDefault();
         const audio = audioRef.current;
-        if (audio) audio.currentTime = Math.max(0, audio.currentTime - 1);
+        const step = e.shiftKey ? 0.1 : 1;
+        if (audio) audio.currentTime = Math.max(0, audio.currentTime - step);
       } else if (e.key === 'ArrowRight') {
         e.preventDefault();
         const audio = audioRef.current;
-        if (audio && audioBuffer) audio.currentTime = Math.min(audioBuffer.duration, audio.currentTime + 1);
+        const step = e.shiftKey ? 0.1 : 1;
+        if (audio && audioBuffer) audio.currentTime = Math.min(audioBuffer.duration, audio.currentTime + step);
       } else if (activeTab === 'beats') {
         if (e.key === 't' || e.key === 'T') {
           e.preventDefault();
@@ -476,7 +478,7 @@ export const BeatTapper = () => {
         )}
         {audioBuffer && (
           <p className={css.help}>
-            <strong>Keys:</strong> <kbd>T</kbd> beat · <kbd>R</kbd> downbeat · <kbd>Space</kbd> play/pause · <kbd>U</kbd>/<kbd>Backspace</kbd> delete before cursor · <kbd>X</kbd> delete after cursor · <kbd>←</kbd>/<kbd>→</kbd> seek 1s · click waveform to seek
+            <strong>Keys:</strong> <kbd>T</kbd> beat · <kbd>R</kbd> downbeat · <kbd>Space</kbd> play/pause · <kbd>U</kbd>/<kbd>Backspace</kbd> delete before cursor · <kbd>X</kbd> delete after cursor · <kbd>←</kbd>/<kbd>→</kbd> seek 1s (<kbd>Shift</kbd> 0.1s) · click waveform to seek
           </p>
         )}
       </div>
@@ -500,7 +502,7 @@ export const BeatTapper = () => {
         />
         {audioBuffer && (
           <p className={css.help}>
-            <strong>Keys (in textarea):</strong> <kbd>Ctrl</kbd>+<kbd>Space</kbd> insert timestamp at caret · <strong>Global:</strong> <kbd>Space</kbd> play/pause · <kbd>←</kbd>/<kbd>→</kbd> seek 1s · click waveform to seek
+            <strong>Keys (in textarea):</strong> <kbd>Ctrl</kbd>+<kbd>Space</kbd> insert timestamp at caret · <strong>Global:</strong> <kbd>Space</kbd> play/pause · <kbd>←</kbd>/<kbd>→</kbd> seek 1s (<kbd>Shift</kbd> 0.1s) · click waveform to seek
           </p>
         )}
       </div>
