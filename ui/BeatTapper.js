@@ -2,8 +2,13 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 import { Waveform } from './Waveform.js';
+import { CalibrateLatencyDialog } from './CalibrateLatencyDialog.js';
+
+import { useConfig } from '../config.js';
 
 import * as css from './BeatTapper.css';
+
+const BEAT_REPLACE_THRESHOLD = 0.12;
 
 async function chooseAudioFile() {
   return new Promise((resolve, reject) => {
@@ -38,6 +43,9 @@ export const BeatTapper = () => {
   const [dragActive, setDragActive] = useState(false);
   const [markers, setMarkers] = useState([]);
   const [tapFlash, setTapFlash] = useState(false);
+  const [showCalibrate, setShowCalibrate] = useState(false);
+
+  const [latencyMs] = useConfig('tap_latency_ms');
 
   const audioRef = useRef(null);
   const audioContextRef = useRef(null);
@@ -95,15 +103,25 @@ export const BeatTapper = () => {
   const addMarker = useCallback(() => {
     const audio = audioRef.current;
     if (!audio || audio.paused) return;
-    const time = audio.currentTime;
+    const time = Math.max(0, audio.currentTime - (latencyMs || 0) / 1000);
     setMarkers((prev) => {
-      const next = [...prev, { id: ++markerIdRef.current, time }];
+      let closestIdx = -1;
+      let closestDist = BEAT_REPLACE_THRESHOLD;
+      for (let i = 0; i < prev.length; i++) {
+        const d = Math.abs(prev[i].time - time);
+        if (d < closestDist) {
+          closestDist = d;
+          closestIdx = i;
+        }
+      }
+      const without = closestIdx >= 0 ? prev.filter((_, i) => i !== closestIdx) : prev;
+      const next = [...without, { id: ++markerIdRef.current, time }];
       next.sort((a, b) => a.time - b.time);
       return next;
     });
     setTapFlash(true);
     setTimeout(() => setTapFlash(false), 90);
-  }, []);
+  }, [latencyMs]);
 
   const undoMarker = useCallback(() => {
     setMarkers((prev) => {
@@ -224,6 +242,9 @@ export const BeatTapper = () => {
     <div className={css.toolbar}>
       <h2>Beat Tapper</h2>
       <button type="button" onClick={onPickFile}>Choose audio file...</button>
+      <button type="button" onClick={() => setShowCalibrate(true)}>
+        Latency: {latencyMs ?? 0} ms
+      </button>
       {file && <span className={css.filename}>{file.name}</span>}
     </div>
 
@@ -289,5 +310,7 @@ export const BeatTapper = () => {
         </p>
       </div>
     )}
+
+    {showCalibrate && <CalibrateLatencyDialog onClose={() => setShowCalibrate(false)} />}
   </div>;
 };
