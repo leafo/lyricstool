@@ -81,6 +81,25 @@
   color: var(--muted-text-color);
 }
 
+.transportRate {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--muted-text-color);
+
+  select {
+    padding: 2px 4px;
+    font-size: 13px;
+    font-family: monospace;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    background: var(--content-bg);
+    color: var(--text-color);
+  }
+}
+
 .lyricsRow {
   position: relative;
   width: 100%;

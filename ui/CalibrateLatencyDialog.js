@@ -6,63 +6,42 @@ import { useConfig } from '../config.js';
 
 import * as css from './BeatTapper.css';
 
-const TICK_INTERVAL = 1.0;
+const TICK_INTERVAL = 0.5;
 const NUM_TICKS = 20;
 const WARMUP_TICKS = 4;
 const LEAD_IN = 1.0;
 const CLICK_DURATION = 0.05;
 const NOISE_DURATION = 0.012;
-const SINE_GAIN = 1.6;
-const NOISE_GAIN = 1.4;
+const SINE_GAIN = 0.55;
+const NOISE_GAIN = 0.35;
 const LEAD_IN_TAP_TOLERANCE = 0.5;
 
-function createLimiter(ctx) {
-  const limiter = ctx.createDynamicsCompressor();
-  limiter.threshold.setValueAtTime(-1, ctx.currentTime);
-  limiter.knee.setValueAtTime(0, ctx.currentTime);
-  limiter.ratio.setValueAtTime(20, ctx.currentTime);
-  limiter.attack.setValueAtTime(0, ctx.currentTime);
-  limiter.release.setValueAtTime(0.05, ctx.currentTime);
-  limiter.connect(ctx.destination);
-  return limiter;
+function createClickBuffer(ctx, frequency) {
+  const length = Math.max(1, Math.ceil(ctx.sampleRate * CLICK_DURATION));
+  const noiseLength = Math.max(1, Math.ceil(ctx.sampleRate * NOISE_DURATION));
+  const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+
+  for (let i = 0; i < length; i++) {
+    const t = i / ctx.sampleRate;
+    const sineEnv = Math.exp(-t * 90);
+    const noiseEnv = i < noiseLength ? Math.exp(-t * 220) : 0;
+    const sine = Math.sin(2 * Math.PI * frequency * t) * SINE_GAIN * sineEnv;
+    const noise = (Math.random() * 2 - 1) * NOISE_GAIN * noiseEnv;
+    data[i] = Math.max(-1, Math.min(1, sine + noise));
+  }
+
+  return buffer;
 }
 
-function scheduleClick(ctx, time, frequency, output) {
-  const oscillator = ctx.createOscillator();
-  const oscGain = ctx.createGain();
-  oscillator.connect(oscGain);
-  oscGain.connect(output);
-  oscillator.frequency.setValueAtTime(frequency, time);
-  oscillator.type = 'sine';
-  oscGain.gain.setValueAtTime(0, time);
-  oscGain.gain.linearRampToValueAtTime(SINE_GAIN, time + 0.005);
-  oscGain.gain.exponentialRampToValueAtTime(0.001, time + CLICK_DURATION);
-  oscillator.start(time);
-  oscillator.stop(time + CLICK_DURATION);
-
-  // Noise burst gives the click its transient punch.
-  const bufferSize = Math.max(1, Math.ceil(ctx.sampleRate * NOISE_DURATION));
-  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-  const data = buffer.getChannelData(0);
-  for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-  const noise = ctx.createBufferSource();
-  noise.buffer = buffer;
-  const noiseGain = ctx.createGain();
-  noise.connect(noiseGain);
-  noiseGain.connect(output);
-  noiseGain.gain.setValueAtTime(NOISE_GAIN, time);
-  noiseGain.gain.exponentialRampToValueAtTime(0.001, time + NOISE_DURATION);
-  noise.start(time);
-  noise.stop(time + NOISE_DURATION);
-
-  oscillator.onended = () => {
-    oscillator.disconnect();
-    oscGain.disconnect();
+function scheduleClick(ctx, time, buffer) {
+  const source = ctx.createBufferSource();
+  source.buffer = buffer;
+  source.connect(ctx.destination);
+  source.onended = () => {
+    source.disconnect();
   };
-  noise.onended = () => {
-    noise.disconnect();
-    noiseGain.disconnect();
-  };
+  source.start(time);
 }
 
 function computeLatencyMs(taps) {
@@ -177,10 +156,11 @@ export const CalibrateLatencyDialog = ({ onClose }) => {
     const startTime = ctx.currentTime + LEAD_IN;
     audioStartTimeRef.current = startTime;
 
-    const limiter = createLimiter(ctx);
+    const downbeatClick = createClickBuffer(ctx, 800);
+    const beatClick = createClickBuffer(ctx, 400);
 
     for (let i = 0; i < NUM_TICKS; i++) {
-      scheduleClick(ctx, startTime + i * TICK_INTERVAL, i === 0 ? 800 : 400, limiter);
+      scheduleClick(ctx, startTime + i * TICK_INTERVAL, i === 0 ? downbeatClick : beatClick);
     }
 
     setPhase('running');

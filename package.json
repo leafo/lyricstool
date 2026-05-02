@@ -7,7 +7,7 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "start": "esbuild main.js --bundle --outfile=bundle.js --loader:.js=jsx --loader:.css=local-css --servedir=. --serve --define:process.env.NODE_ENV='\"production\"'",
+    "start": "esbuild main.js --bundle --outfile=bundle.js --loader:.js=jsx --loader:.css=local-css --servedir=. --serve --define:process.env.NODE_ENV='\"production\"' --minify-syntax",
     "dev": "esbuild main.js --bundle --outfile=bundle.js --loader:.js=jsx --loader:.css=local-css --servedir=. --serve",
     "test": "node --test"
   },

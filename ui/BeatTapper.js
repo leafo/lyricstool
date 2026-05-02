@@ -10,6 +10,7 @@ import * as css from './BeatTapper.css';
 
 const BEAT_REPLACE_THRESHOLD = 0.12;
 const TAP_FLASH_MS = 90;
+const TRANSPORT_TIME_UPDATE_MS = 100;
 
 function clampTime(time, duration) {
   if (!isFinite(time)) return 0;
@@ -90,14 +91,18 @@ function parseLyricChunks(text, defaultEndTime) {
   }));
 }
 
+const PLAYBACK_RATES = [0.5, 0.75, 1.0, 1.25, 1.5];
+
 function useAudioBufferTransport(audioBuffer, audioContextRef) {
   const [isPlaying, setIsPlaying] = useState(false);
+  const [playbackRate, setPlaybackRateState] = useState(1.0);
 
   const sourceRef = useRef(null);
   const startedAtRef = useRef(0);
   const offsetRef = useRef(0);
   const currentTimeRef = useRef(0);
   const isPlayingRef = useRef(false);
+  const playbackRateRef = useRef(1.0);
   const timeListenersRef = useRef(new Set());
 
   const duration = audioBuffer?.duration || 0;
@@ -116,7 +121,8 @@ function useAudioBufferTransport(audioBuffer, audioContextRef) {
   const getCurrentTime = useCallback(() => {
     const ctx = audioContextRef.current;
     if (sourceRef.current && ctx && isPlayingRef.current) {
-      return clampTime(offsetRef.current + ctx.currentTime - startedAtRef.current, duration);
+      const elapsed = (ctx.currentTime - startedAtRef.current) * playbackRateRef.current;
+      return clampTime(offsetRef.current + elapsed, duration);
     }
     return clampTime(currentTimeRef.current, duration);
   }, [audioContextRef, duration]);
@@ -153,6 +159,7 @@ function useAudioBufferTransport(audioBuffer, audioContextRef) {
       setIsPlaying(false);
       return false;
     }
+    source.playbackRate.value = playbackRateRef.current;
     sourceRef.current = source;
     offsetRef.current = startOffset;
     startedAtRef.current = ctx.currentTime;
@@ -206,6 +213,24 @@ function useAudioBufferTransport(audioBuffer, audioContextRef) {
     }
   }, [pause, play]);
 
+  const setPlaybackRate = useCallback((rate) => {
+    if (!isFinite(rate) || rate <= 0) return;
+    if (rate === playbackRateRef.current) return;
+    const ctx = audioContextRef.current;
+    const source = sourceRef.current;
+    if (source && ctx && isPlayingRef.current) {
+      const now = ctx.currentTime;
+      offsetRef.current = clampTime(
+        offsetRef.current + (now - startedAtRef.current) * playbackRateRef.current,
+        duration,
+      );
+      startedAtRef.current = now;
+      source.playbackRate.setValueAtTime(rate, now);
+    }
+    playbackRateRef.current = rate;
+    setPlaybackRateState(rate);
+  }, [audioContextRef, duration]);
+
   const seek = useCallback((time) => {
     if (!audioBuffer) return;
     const nextTime = clampTime(time, audioBuffer.duration);
@@ -250,12 +275,14 @@ function useAudioBufferTransport(audioBuffer, audioContextRef) {
     currentTimeRef,
     duration,
     isPlaying,
+    playbackRate,
     getCurrentTime,
     subscribeTime,
     play,
     pause,
     seek,
     togglePlay,
+    setPlaybackRate,
   };
 }
 
@@ -270,13 +297,10 @@ const TransportTime = React.memo(({ currentTimeRef, duration, isPlaying, getCurr
 
   useEffect(() => {
     if (!isPlaying) return;
-    let rafId = 0;
-    const tick = () => {
+    const id = setInterval(() => {
       setDisplayTime(getCurrentTime());
-      rafId = requestAnimationFrame(tick);
-    };
-    rafId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafId);
+    }, TRANSPORT_TIME_UPDATE_MS);
+    return () => clearInterval(id);
   }, [getCurrentTime, isPlaying]);
 
   return (
@@ -341,11 +365,13 @@ export const BeatTapper = () => {
     currentTimeRef,
     duration,
     isPlaying,
+    playbackRate,
     getCurrentTime,
     subscribeTime,
     pause,
     seek,
     togglePlay,
+    setPlaybackRate,
   } = transport;
 
   const loadFile = useCallback(async (f) => {
@@ -388,7 +414,7 @@ export const BeatTapper = () => {
 
   const addMarker = useCallback((type = 'beat') => {
     if (!isPlaying) return;
-    const time = Math.max(0, getCurrentTime() - (latencyMs || 0) / 1000);
+    const time = Math.max(0, getCurrentTime() - ((latencyMs || 0) / 1000) * playbackRate);
     setMarkers((prev) => {
       let closestIdx = -1;
       let closestDist = BEAT_REPLACE_THRESHOLD;
@@ -418,7 +444,7 @@ export const BeatTapper = () => {
         tapFlashTimerRef.current = null;
       }, TAP_FLASH_MS);
     }
-  }, [getCurrentTime, isPlaying, latencyMs]);
+  }, [getCurrentTime, isPlaying, latencyMs, playbackRate]);
 
   const removeMarkerBeforeCursor = useCallback(() => {
     const cursorTime = getCurrentTime();
@@ -477,7 +503,7 @@ export const BeatTapper = () => {
     const ta = lyricsTextareaRef.current;
     if (!ta) return;
 
-    const time = Math.max(0, getCurrentTime() - (latencyMs || 0) / 1000);
+    const time = Math.max(0, getCurrentTime() - ((latencyMs || 0) / 1000) * playbackRate);
     const stamp = `[${formatSeconds(time, 2)}]`;
     const text = ta.value;
     let start = ta.selectionStart;
@@ -505,7 +531,7 @@ export const BeatTapper = () => {
       el.focus();
       el.setSelectionRange(newPos, newPos);
     }, 0);
-  }, [getCurrentTime, latencyMs]);
+  }, [getCurrentTime, latencyMs, playbackRate]);
 
   useEffect(() => {
     const handler = (e) => {
@@ -673,6 +699,17 @@ export const BeatTapper = () => {
           getCurrentTime={getCurrentTime}
           subscribeTime={subscribeTime}
         />
+        <label className={css.transportRate}>
+          Speed
+          <select
+            value={playbackRate}
+            onChange={(e) => setPlaybackRate(parseFloat(e.target.value))}
+          >
+            {PLAYBACK_RATES.map((r) => (
+              <option key={r} value={r}>{r}x</option>
+            ))}
+          </select>
+        </label>
       </div>
     )}
 
