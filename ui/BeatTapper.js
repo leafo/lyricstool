@@ -85,6 +85,27 @@ function parseLyricChunks(text, defaultEndTime) {
   }));
 }
 
+const BeatMarkerItem = React.memo(({ marker, disabled, onSeek, onDelete }) => {
+  return (
+    <li className={marker.type === 'downbeat' ? css.markerDownbeat : ''}>
+      <button
+        type="button"
+        className={css.markerSeek}
+        onClick={() => onSeek(marker.time)}
+        disabled={disabled}
+      >
+        {marker.type === 'downbeat' ? '▸ ' : ''}{formatSeconds(marker.time, 3)}
+      </button>
+      <button
+        type="button"
+        className={css.markerDelete}
+        onClick={() => onDelete(marker.id)}
+        aria-label="Delete marker"
+      >×</button>
+    </li>
+  );
+});
+
 export const BeatTapper = () => {
   const [file, setFile] = useState(null);
   const [audioUrl, setAudioUrl] = useState(null);
@@ -110,6 +131,8 @@ export const BeatTapper = () => {
   const markerIdRef = useRef(0);
   const lyricsTextareaRef = useRef(null);
   const tapFlashTimerRef = useRef(null);
+  const markersRef = useRef(markers);
+  markersRef.current = markers;
 
   const loadFile = useCallback(async (f) => {
     if (!f.type.startsWith('audio/')) {
@@ -238,6 +261,22 @@ export const BeatTapper = () => {
     const audio = audioRef.current;
     if (audio) audio.currentTime = time;
   }, []);
+
+  const seekToLyricBeforeCaret = useCallback((caret) => {
+    const ta = lyricsTextareaRef.current;
+    if (!ta) return;
+    const text = ta.value;
+    let last = null;
+    for (const m of text.matchAll(LYRIC_STAMP_RE)) {
+      if (m.index + m[0].length > caret) break;
+      last = m;
+    }
+    if (!last) return;
+    const minutes = parseInt(last[1], 10);
+    const seconds = parseFloat(last[2]);
+    if (!isFinite(minutes) || !isFinite(seconds)) return;
+    onSeek(minutes * 60 + seconds);
+  }, [onSeek]);
 
   const insertLyricTimestamp = useCallback(() => {
     const audio = audioRef.current;
@@ -441,7 +480,7 @@ export const BeatTapper = () => {
     {audioBuffer && <Waveform
       audioBuffer={audioBuffer}
       audioRef={audioRef}
-      markers={markers}
+      markersRef={markersRef}
       lyricChunks={lyricChunks}
       onSeek={onSeek}
     />}
@@ -491,12 +530,13 @@ export const BeatTapper = () => {
         {markers.length > 0 ? (
           <ul className={css.markerList}>
             {markers.map((m) => (
-              <li key={m.id} className={m.type === 'downbeat' ? css.markerDownbeat : ''}>
-                <button type="button" className={css.markerSeek} onClick={() => onSeek(m.time)} disabled={!audioBuffer}>
-                  {m.type === 'downbeat' ? '▸ ' : ''}{formatSeconds(m.time, 3)}
-                </button>
-                <button type="button" className={css.markerDelete} onClick={() => deleteMarker(m.id)} aria-label="Delete marker">×</button>
-              </li>
+              <BeatMarkerItem
+                key={m.id}
+                marker={m}
+                disabled={!audioBuffer}
+                onSeek={onSeek}
+                onDelete={deleteMarker}
+              />
             ))}
           </ul>
         ) : (
@@ -527,12 +567,17 @@ export const BeatTapper = () => {
               insertLyricTimestamp();
             }
           }}
+          onClick={(e) => {
+            if (e.ctrlKey || e.metaKey) {
+              seekToLyricBeforeCaret(e.target.selectionStart);
+            }
+          }}
           placeholder="Paste or type lyrics here. With audio loaded, press Ctrl+Space to insert a timestamp at the caret."
           spellCheck={false}
         />
         {audioBuffer && (
           <p className={css.help}>
-            <strong>Keys (in textarea):</strong> <kbd>Ctrl</kbd>+<kbd>Space</kbd> insert timestamp at caret · <strong>Global:</strong> <kbd>Space</kbd> play/pause · <kbd>←</kbd>/<kbd>→</kbd> seek 1s (<kbd>Shift</kbd> 0.1s) · click waveform to seek
+            <strong>Keys (in textarea):</strong> <kbd>Ctrl</kbd>+<kbd>Space</kbd> insert timestamp at caret · <kbd>Ctrl</kbd>+click seeks to nearest timestamp before caret · <strong>Global:</strong> <kbd>Space</kbd> play/pause · <kbd>←</kbd>/<kbd>→</kbd> seek 1s (<kbd>Shift</kbd> 0.1s) · click waveform to seek
           </p>
         )}
       </div>

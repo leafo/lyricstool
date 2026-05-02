@@ -54,7 +54,7 @@ function computeLayout(currentTime, pps, viewWidth) {
   return { srcX, cursorX };
 }
 
-const LyricChunk = ({ chunk, pps }) => {
+const LyricChunk = React.memo(({ chunk, pps }) => {
   const textRef = useRef(null);
   const width = (chunk.endTime - chunk.time) * pps;
 
@@ -77,16 +77,14 @@ const LyricChunk = ({ chunk, pps }) => {
       <span ref={textRef} className={css.lyricChunkText}>{chunk.text}</span>
     </div>
   );
-};
+});
 
-export const Waveform = ({ audioBuffer, audioRef, markers, lyricChunks, onSeek }) => {
+export const Waveform = React.memo(({ audioBuffer, audioRef, markersRef, lyricChunks, onSeek }) => {
   const canvasRef = useRef(null);
   const offscreenRef = useRef(null);
   const ppsRef = useRef(PIXELS_PER_SECOND);
   const dragStateRef = useRef(null);
   const lyricsScrollerRef = useRef(null);
-  const markersRef = useRef(markers);
-  markersRef.current = markers;
 
   const renderPps = audioBuffer && audioBuffer.duration * PIXELS_PER_SECOND > MAX_OFFSCREEN_WIDTH
     ? MAX_OFFSCREEN_WIDTH / audioBuffer.duration
@@ -353,4 +351,4 @@ export const Waveform = ({ audioBuffer, audioRef, markers, lyricChunks, onSeek }
       />
     </div>
   </>;
-};
+});
