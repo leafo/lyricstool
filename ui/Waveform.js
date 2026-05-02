@@ -7,6 +7,7 @@ const PIXELS_PER_SECOND = 100;
 const WAVEFORM_HEIGHT = 160;
 // Browser canvas-dimension cap (Safari is the strictest at 16384)
 const MAX_OFFSCREEN_WIDTH = 16384;
+const TAP_THRESHOLD_PX = 4;
 
 const WAVEFORM_COLOR = '#527a42';
 const CURSOR_COLOR = '#d32f2f';
@@ -53,9 +54,6 @@ function computeLayout(currentTime, pps, viewWidth) {
   return { srcX, cursorX };
 }
 
-const TAP_THRESHOLD_PX = 4;
-const LYRIC_CHUNK_PADDING_PX = 0;
-
 const LyricChunk = ({ chunk, pps }) => {
   const textRef = useRef(null);
   const width = (chunk.endTime - chunk.time) * pps;
@@ -64,10 +62,9 @@ const LyricChunk = ({ chunk, pps }) => {
     const el = textRef.current;
     if (!el) return;
     el.style.transform = '';
-    const avail = width - LYRIC_CHUNK_PADDING_PX;
     const natural = el.scrollWidth;
-    if (natural > avail && avail > 0) {
-      el.style.transform = `scaleX(${avail / natural})`;
+    if (natural > width && width > 0) {
+      el.style.transform = `scaleX(${width / natural})`;
     }
   }, [chunk.text, width]);
 
@@ -88,6 +85,8 @@ export const Waveform = ({ audioBuffer, audioRef, markers, lyricChunks, onSeek }
   const ppsRef = useRef(PIXELS_PER_SECOND);
   const dragStateRef = useRef(null);
   const lyricsScrollerRef = useRef(null);
+  const markersRef = useRef(markers);
+  markersRef.current = markers;
 
   const renderPps = audioBuffer && audioBuffer.duration * PIXELS_PER_SECOND > MAX_OFFSCREEN_WIDTH
     ? MAX_OFFSCREEN_WIDTH / audioBuffer.duration
@@ -113,105 +112,144 @@ export const Waveform = ({ audioBuffer, audioRef, markers, lyricChunks, onSeek }
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    const ctx = canvas.getContext('2d');
+    let viewWidth = 0;
+    let viewHeight = 0;
+    let dpr = window.devicePixelRatio || 1;
+
+    let lastTime = -1;
+    let lastMarkers = null;
+    let lastLyricsTransform = null;
+    let lastScroller = null;
+    let lastViewW = 0;
+    let lastViewH = 0;
+
+    const syncSize = () => {
+      viewWidth = canvas.clientWidth;
+      viewHeight = canvas.clientHeight;
+      dpr = window.devicePixelRatio || 1;
+      const targetW = Math.floor(viewWidth * dpr);
+      const targetH = Math.floor(viewHeight * dpr);
+      if (canvas.width !== targetW || canvas.height !== targetH) {
+        canvas.width = targetW;
+        canvas.height = targetH;
+      }
+      lastTime = -1;
+    };
+    syncSize();
+    const ro = new ResizeObserver(syncSize);
+    ro.observe(canvas);
+
     let rafId = 0;
     const tick = () => {
-      const dpr = window.devicePixelRatio || 1;
-      const viewWidth = canvas.clientWidth;
-      const viewHeight = canvas.clientHeight;
+      rafId = requestAnimationFrame(tick);
 
-      if (viewWidth > 0 && viewHeight > 0) {
-        const targetW = Math.floor(viewWidth * dpr);
-        const targetH = Math.floor(viewHeight * dpr);
-        if (canvas.width !== targetW || canvas.height !== targetH) {
-          canvas.width = targetW;
-          canvas.height = targetH;
+      const audio = audioRef.current;
+      const currentTime = audio ? audio.currentTime : 0;
+      const offscreen = offscreenRef.current;
+      const currentMarkers = markersRef.current;
+
+      if (viewWidth <= 0 || viewHeight <= 0 || !offscreen) return;
+
+      const pps = ppsRef.current;
+      const { srcX, cursorX } = computeLayout(currentTime, pps, viewWidth);
+
+      const scroller = lyricsScrollerRef.current;
+      if (scroller) {
+        const transform = `translate3d(${-srcX}px, 0, 0)`;
+        if (transform !== lastLyricsTransform || scroller !== lastScroller) {
+          scroller.style.transform = transform;
+          lastLyricsTransform = transform;
+          lastScroller = scroller;
         }
+      } else if (lastScroller) {
+        lastScroller = null;
+        lastLyricsTransform = null;
+      }
 
-        const ctx = canvas.getContext('2d');
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        ctx.clearRect(0, 0, viewWidth, viewHeight);
+      if (
+        currentTime === lastTime &&
+        currentMarkers === lastMarkers &&
+        viewWidth === lastViewW &&
+        viewHeight === lastViewH
+      ) return;
 
-        const offscreen = offscreenRef.current;
-        if (offscreen) {
-          const audio = audioRef.current;
-          const currentTime = audio ? audio.currentTime : 0;
-          const pps = ppsRef.current;
-          const { srcX, cursorX } = computeLayout(currentTime, pps, viewWidth);
+      lastTime = currentTime;
+      lastMarkers = currentMarkers;
+      lastViewW = viewWidth;
+      lastViewH = viewHeight;
 
-          const visibleSrcStart = Math.max(0, srcX);
-          const visibleSrcEnd = Math.min(offscreen.width, srcX + viewWidth);
-          const drawWidth = Math.max(0, visibleSrcEnd - visibleSrcStart);
-          const destX = Math.max(0, -srcX);
-          if (drawWidth > 0) {
-            ctx.drawImage(
-              offscreen,
-              visibleSrcStart, 0, drawWidth, offscreen.height,
-              destX, 0, drawWidth, viewHeight
-            );
-          }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, viewWidth, viewHeight);
 
-          ctx.strokeStyle = MARKER_COLOR;
-          ctx.lineWidth = 1;
-          ctx.beginPath();
-          for (const m of markers) {
-            if (m.type === 'downbeat') continue;
-            const mx = m.time * pps - srcX;
-            if (mx >= -1 && mx <= viewWidth + 1) {
-              const x = Math.round(mx) + 0.5;
-              ctx.moveTo(x, 0);
-              ctx.lineTo(x, viewHeight);
-            }
-          }
-          ctx.stroke();
+      const visibleSrcStart = Math.max(0, srcX);
+      const visibleSrcEnd = Math.min(offscreen.width, srcX + viewWidth);
+      const drawWidth = Math.max(0, visibleSrcEnd - visibleSrcStart);
+      const destX = Math.max(0, -srcX);
+      if (drawWidth > 0) {
+        ctx.drawImage(
+          offscreen,
+          visibleSrcStart, 0, drawWidth, offscreen.height,
+          destX, 0, drawWidth, viewHeight
+        );
+      }
 
-          ctx.strokeStyle = DOWNBEAT_COLOR;
-          ctx.fillStyle = DOWNBEAT_COLOR;
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          for (const m of markers) {
-            if (m.type !== 'downbeat') continue;
-            const mx = m.time * pps - srcX;
-            if (mx >= -1 && mx <= viewWidth + 1) {
-              const x = Math.round(mx) + 0.5;
-              ctx.moveTo(x, 0);
-              ctx.lineTo(x, viewHeight);
-            }
-          }
-          ctx.stroke();
-          for (const m of markers) {
-            if (m.type !== 'downbeat') continue;
-            const mx = m.time * pps - srcX;
-            if (mx >= -DOWNBEAT_TRIANGLE_SIZE && mx <= viewWidth + DOWNBEAT_TRIANGLE_SIZE) {
-              const x = Math.round(mx);
-              ctx.beginPath();
-              ctx.moveTo(x, 0);
-              ctx.lineTo(x - DOWNBEAT_TRIANGLE_SIZE, DOWNBEAT_TRIANGLE_SIZE);
-              ctx.lineTo(x + DOWNBEAT_TRIANGLE_SIZE, DOWNBEAT_TRIANGLE_SIZE);
-              ctx.closePath();
-              ctx.fill();
-            }
-          }
-
-          ctx.strokeStyle = CURSOR_COLOR;
-          ctx.lineWidth = 2;
-          const cx = Math.round(cursorX) + 0.5;
-          ctx.beginPath();
-          ctx.moveTo(cx, 0);
-          ctx.lineTo(cx, viewHeight);
-          ctx.stroke();
-
-          const scroller = lyricsScrollerRef.current;
-          if (scroller) {
-            scroller.style.transform = `translate3d(${-srcX}px, 0, 0)`;
-          }
+      const beats = [];
+      const downbeats = [];
+      for (const m of currentMarkers) {
+        const mx = m.time * pps - srcX;
+        if (m.type === 'downbeat') {
+          if (mx >= -DOWNBEAT_TRIANGLE_SIZE && mx <= viewWidth + DOWNBEAT_TRIANGLE_SIZE) downbeats.push(mx);
+        } else {
+          if (mx >= -1 && mx <= viewWidth + 1) beats.push(mx);
         }
       }
 
-      rafId = requestAnimationFrame(tick);
+      ctx.beginPath();
+      ctx.strokeStyle = MARKER_COLOR;
+      ctx.lineWidth = 1;
+      for (const mx of beats) {
+        const x = Math.round(mx) + 0.5;
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, viewHeight);
+      }
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.strokeStyle = DOWNBEAT_COLOR;
+      ctx.lineWidth = 2;
+      for (const mx of downbeats) {
+        const x = Math.round(mx) + 0.5;
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, viewHeight);
+      }
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.fillStyle = DOWNBEAT_COLOR;
+      for (const mx of downbeats) {
+        const x = Math.round(mx);
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x - DOWNBEAT_TRIANGLE_SIZE, DOWNBEAT_TRIANGLE_SIZE);
+        ctx.lineTo(x + DOWNBEAT_TRIANGLE_SIZE, DOWNBEAT_TRIANGLE_SIZE);
+        ctx.closePath();
+      }
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.strokeStyle = CURSOR_COLOR;
+      ctx.lineWidth = 2;
+      const cx = Math.round(cursorX) + 0.5;
+      ctx.moveTo(cx, 0);
+      ctx.lineTo(cx, viewHeight);
+      ctx.stroke();
     };
     rafId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafId);
-  }, [audioBuffer, markers, audioRef]);
+    return () => {
+      cancelAnimationFrame(rafId);
+      ro.disconnect();
+    };
+  }, [audioBuffer, audioRef]);
 
   const seekToViewPosition = (clientX) => {
     if (!audioBuffer || !onSeek) return;

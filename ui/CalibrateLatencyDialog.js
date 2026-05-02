@@ -14,6 +14,7 @@ const CLICK_DURATION = 0.05;
 const NOISE_DURATION = 0.012;
 const SINE_GAIN = 1.6;
 const NOISE_GAIN = 1.4;
+const LEAD_IN_TAP_TOLERANCE = 0.5;
 
 function createLimiter(ctx) {
   const limiter = ctx.createDynamicsCompressor();
@@ -27,7 +28,6 @@ function createLimiter(ctx) {
 }
 
 function scheduleClick(ctx, time, frequency, output) {
-  // Pitched sine body
   const oscillator = ctx.createOscillator();
   const oscGain = ctx.createGain();
   oscillator.connect(oscGain);
@@ -40,7 +40,7 @@ function scheduleClick(ctx, time, frequency, output) {
   oscillator.start(time);
   oscillator.stop(time + CLICK_DURATION);
 
-  // Broadband transient (white noise burst) — what gives the "click" its punch
+  // Noise burst gives the click its transient punch.
   const bufferSize = Math.max(1, Math.ceil(ctx.sampleRate * NOISE_DURATION));
   const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
   const data = buffer.getChannelData(0);
@@ -90,7 +90,6 @@ export const CalibrateLatencyDialog = ({ onClose }) => {
   const [tickCount, setTickCount] = useState(0);
   const [tapCount, setTapCount] = useState(0);
   const [liveResult, setLiveResult] = useState(null);
-  const [resultMessage, setResultMessage] = useState('');
 
   const audioCtxRef = useRef(null);
   const audioStartTimeRef = useRef(0);
@@ -128,12 +127,8 @@ export const CalibrateLatencyDialog = ({ onClose }) => {
   const finalize = useCallback(() => {
     setPhase('done');
     const result = computeLatencyMs(tapsRef.current);
-    if (result === null) {
-      setResultMessage(`Not enough usable taps (${tapsRef.current.length} recorded). Try again.`);
-    } else {
-      setResultMessage(`Estimated latency: ${result.latencyMs} ms (median of ${result.used} taps)`);
-      setInputValue(String(result.latencyMs));
-    }
+    setLiveResult(result);
+    if (result !== null) setInputValue(String(result.latencyMs));
   }, []);
 
   const recordTap = useCallback(() => {
@@ -141,7 +136,7 @@ export const CalibrateLatencyDialog = ({ onClose }) => {
     const ctx = audioCtxRef.current;
     if (!ctx) return;
     const t = ctx.currentTime - audioStartTimeRef.current;
-    if (t < -0.5) return; // tap before lead-in elapsed
+    if (t < -LEAD_IN_TAP_TOLERANCE) return;
     tapsRef.current.push(t);
     setTapCount(tapsRef.current.length);
 
@@ -172,7 +167,6 @@ export const CalibrateLatencyDialog = ({ onClose }) => {
     setTapCount(0);
     setTickCount(0);
     setLiveResult(null);
-    setResultMessage('');
 
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     audioCtxRef.current = ctx;
@@ -213,7 +207,6 @@ export const CalibrateLatencyDialog = ({ onClose }) => {
     setTickCount(0);
     setTapCount(0);
     setLiveResult(null);
-    setResultMessage('');
   }, [cleanup]);
 
   const handleSave = useCallback(async () => {
@@ -240,9 +233,13 @@ export const CalibrateLatencyDialog = ({ onClose }) => {
       </div>
     )}
 
-    {phase === 'done' && resultMessage && (
+    {phase === 'done' && (
       <div className={css.calibrateResult}>
-        <p>{resultMessage}</p>
+        <p>
+          {liveResult
+            ? `Estimated latency: ${liveResult.latencyMs} ms (median of ${liveResult.used} taps)`
+            : `Not enough usable taps (${tapsRef.current.length} recorded). Try again.`}
+        </p>
       </div>
     )}
 

@@ -9,29 +9,13 @@ import { useConfig } from '../config.js';
 import * as css from './BeatTapper.css';
 
 const BEAT_REPLACE_THRESHOLD = 0.12;
+const TAP_FLASH_MS = 90;
 
-async function chooseAudioFile() {
+async function chooseFile(accept) {
   return new Promise((resolve, reject) => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'audio/*';
-    input.onchange = (e) => {
-      const file = e.target.files[0];
-      if (!file) {
-        reject(new Error('No file selected'));
-        return;
-      }
-      resolve(file);
-    };
-    input.click();
-  });
-}
-
-async function chooseJsonFile() {
-  return new Promise((resolve, reject) => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'application/json,.json';
+    input.accept = accept;
     input.onchange = (e) => {
       const file = e.target.files[0];
       if (!file) {
@@ -64,17 +48,11 @@ function parseSession(parsed) {
   return null;
 }
 
-function formatTime(seconds) {
-  if (!isFinite(seconds)) return '0:00.000';
-  const m = Math.floor(seconds / 60);
-  const s = (seconds - m * 60).toFixed(3).padStart(6, '0');
-  return `${m}:${s}`;
-}
-
-function formatInlineTime(seconds) {
-  if (!isFinite(seconds)) return '0:00.00';
-  const m = Math.floor(seconds / 60);
-  const s = (seconds - m * 60).toFixed(2).padStart(5, '0');
+function formatSeconds(seconds, decimals) {
+  const safe = isFinite(seconds) ? seconds : 0;
+  const m = Math.floor(safe / 60);
+  const padLength = decimals > 0 ? decimals + 3 : 2;
+  const s = (safe - m * 60).toFixed(decimals).padStart(padLength, '0');
   return `${m}:${s}`;
 }
 
@@ -85,10 +63,8 @@ function parseLyricChunks(text, defaultEndTime) {
   const chunks = [];
   const lines = text.split('\n');
   for (const line of lines) {
-    LYRIC_STAMP_RE.lastIndex = 0;
     const matches = [];
-    let m;
-    while ((m = LYRIC_STAMP_RE.exec(line)) !== null) {
+    for (const m of line.matchAll(LYRIC_STAMP_RE)) {
       const minutes = parseInt(m[1], 10);
       const seconds = parseFloat(m[2]);
       if (isFinite(minutes) && isFinite(seconds)) {
@@ -133,6 +109,7 @@ export const BeatTapper = () => {
   const audioContextRef = useRef(null);
   const markerIdRef = useRef(0);
   const lyricsTextareaRef = useRef(null);
+  const tapFlashTimerRef = useRef(null);
 
   const loadFile = useCallback(async (f) => {
     if (!f.type.startsWith('audio/')) {
@@ -203,7 +180,11 @@ export const BeatTapper = () => {
       return next;
     });
     setTapFlash(type);
-    setTimeout(() => setTapFlash(null), 90);
+    if (tapFlashTimerRef.current) clearTimeout(tapFlashTimerRef.current);
+    tapFlashTimerRef.current = setTimeout(() => {
+      tapFlashTimerRef.current = null;
+      setTapFlash(null);
+    }, TAP_FLASH_MS);
   }, [latencyMs]);
 
   const removeMarkerBeforeCursor = useCallback(() => {
@@ -265,15 +246,13 @@ export const BeatTapper = () => {
     if (!ta) return;
 
     const time = Math.max(0, audio.currentTime - (latencyMs || 0) / 1000);
-    const stamp = `[${formatInlineTime(time)}]`;
+    const stamp = `[${formatSeconds(time, 2)}]`;
     const text = ta.value;
     let start = ta.selectionStart;
     let end = ta.selectionEnd;
 
     if (start === end) {
-      LYRIC_STAMP_RE.lastIndex = 0;
-      let m;
-      while ((m = LYRIC_STAMP_RE.exec(text)) !== null) {
+      for (const m of text.matchAll(LYRIC_STAMP_RE)) {
         const ms = m.index;
         const me = m.index + m[0].length;
         if (start >= ms && start <= me) {
@@ -355,7 +334,7 @@ export const BeatTapper = () => {
   }, [loadFile]);
 
   const onPickFile = useCallback(() => {
-    chooseAudioFile().then(loadFile).catch(() => {});
+    chooseFile('audio/*').then(loadFile).catch(() => {});
   }, [loadFile]);
 
   const exportPayload = useCallback(() => ({
@@ -367,7 +346,7 @@ export const BeatTapper = () => {
   const onLoadJson = useCallback(async () => {
     let f;
     try {
-      f = await chooseJsonFile();
+      f = await chooseFile('application/json,.json');
     } catch (_) {
       return;
     }
@@ -507,16 +486,14 @@ export const BeatTapper = () => {
       <div className={css.markerSection}>
         <div className={css.markerHeader}>
           <h3>Beat markers ({markers.length})</h3>
-          <div className={css.markerActions}>
-            <button type="button" onClick={clearAll} disabled={markers.length === 0}>Clear all</button>
-          </div>
+          <button type="button" onClick={clearAll} disabled={markers.length === 0}>Clear all</button>
         </div>
         {markers.length > 0 ? (
           <ul className={css.markerList}>
             {markers.map((m) => (
               <li key={m.id} className={m.type === 'downbeat' ? css.markerDownbeat : ''}>
                 <button type="button" className={css.markerSeek} onClick={() => onSeek(m.time)} disabled={!audioBuffer}>
-                  {m.type === 'downbeat' ? '▸ ' : ''}{formatTime(m.time)}
+                  {m.type === 'downbeat' ? '▸ ' : ''}{formatSeconds(m.time, 3)}
                 </button>
                 <button type="button" className={css.markerDelete} onClick={() => deleteMarker(m.id)} aria-label="Delete marker">×</button>
               </li>

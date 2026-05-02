@@ -245,12 +245,6 @@
   }
 }
 
-.markerActions {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
 .markerList {
   list-style: none;
   margin: 0;
