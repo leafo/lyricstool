@@ -79,7 +79,7 @@ const LyricChunk = React.memo(({ chunk, pps }) => {
   );
 });
 
-export const Waveform = React.memo(({ audioBuffer, audioRef, markersRef, lyricChunks, onSeek }) => {
+export const Waveform = React.memo(({ audioBuffer, currentTimeRef, isPlaying, markersRef, lyricChunks, onSeek, onPause }) => {
   const canvasRef = useRef(null);
   const offscreenRef = useRef(null);
   const ppsRef = useRef(PIXELS_PER_SECOND);
@@ -142,8 +142,7 @@ export const Waveform = React.memo(({ audioBuffer, audioRef, markersRef, lyricCh
     const tick = () => {
       rafId = requestAnimationFrame(tick);
 
-      const audio = audioRef.current;
-      const currentTime = audio ? audio.currentTime : 0;
+      const currentTime = currentTimeRef.current;
       const offscreen = offscreenRef.current;
       const currentMarkers = markersRef.current;
 
@@ -247,7 +246,7 @@ export const Waveform = React.memo(({ audioBuffer, audioRef, markersRef, lyricCh
       cancelAnimationFrame(rafId);
       ro.disconnect();
     };
-  }, [audioBuffer, audioRef]);
+  }, [audioBuffer, markersRef]);
 
   const seekToViewPosition = (clientX) => {
     if (!audioBuffer || !onSeek) return;
@@ -257,8 +256,7 @@ export const Waveform = React.memo(({ audioBuffer, audioRef, markersRef, lyricCh
 
     const rect = canvas.getBoundingClientRect();
     const x = clientX - rect.left;
-    const audio = audioRef.current;
-    const currentTime = audio ? audio.currentTime : 0;
+    const currentTime = currentTimeRef.current;
     const pps = ppsRef.current;
     const { srcX } = computeLayout(currentTime, pps, rect.width);
 
@@ -268,10 +266,8 @@ export const Waveform = React.memo(({ audioBuffer, audioRef, markersRef, lyricCh
 
   const handlePointerDown = (e) => {
     if (!audioBuffer) return;
-    const audio = audioRef.current;
-    if (!audio) return;
 
-    if (!audio.paused) audio.pause();
+    if (isPlaying && onPause) onPause();
 
     const canvas = canvasRef.current;
     try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
@@ -279,7 +275,7 @@ export const Waveform = React.memo(({ audioBuffer, audioRef, markersRef, lyricCh
     dragStateRef.current = {
       pointerId: e.pointerId,
       startX: e.clientX,
-      startTime: audio.currentTime,
+      startTime: currentTimeRef.current,
       moved: false,
     };
   };

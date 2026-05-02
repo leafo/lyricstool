@@ -11,6 +11,11 @@ import * as css from './BeatTapper.css';
 const BEAT_REPLACE_THRESHOLD = 0.12;
 const TAP_FLASH_MS = 90;
 
+function clampTime(time, duration) {
+  if (!isFinite(time)) return 0;
+  return Math.max(0, Math.min(duration || 0, time));
+}
+
 async function chooseFile(accept) {
   return new Promise((resolve, reject) => {
     const input = document.createElement('input');
@@ -85,6 +90,202 @@ function parseLyricChunks(text, defaultEndTime) {
   }));
 }
 
+function useAudioBufferTransport(audioBuffer, audioContextRef) {
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  const sourceRef = useRef(null);
+  const startedAtRef = useRef(0);
+  const offsetRef = useRef(0);
+  const currentTimeRef = useRef(0);
+  const isPlayingRef = useRef(false);
+  const timeListenersRef = useRef(new Set());
+
+  const duration = audioBuffer?.duration || 0;
+
+  const notifyTimeListeners = useCallback(() => {
+    for (const listener of timeListenersRef.current) {
+      listener();
+    }
+  }, []);
+
+  const subscribeTime = useCallback((listener) => {
+    timeListenersRef.current.add(listener);
+    return () => timeListenersRef.current.delete(listener);
+  }, []);
+
+  const getCurrentTime = useCallback(() => {
+    const ctx = audioContextRef.current;
+    if (sourceRef.current && ctx && isPlayingRef.current) {
+      return clampTime(offsetRef.current + ctx.currentTime - startedAtRef.current, duration);
+    }
+    return clampTime(currentTimeRef.current, duration);
+  }, [audioContextRef, duration]);
+
+  const stopSource = useCallback(() => {
+    const source = sourceRef.current;
+    if (!source) return;
+    sourceRef.current = null;
+    source.onended = null;
+    try {
+      source.stop();
+    } catch (_) {}
+    try {
+      source.disconnect();
+    } catch (_) {}
+  }, []);
+
+  const startSource = useCallback((offset) => {
+    const ctx = audioContextRef.current;
+    if (!ctx || !audioBuffer) return false;
+
+    stopSource();
+    if (audioBuffer.duration <= 0) return false;
+    const source = ctx.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(ctx.destination);
+
+    const startOffset = clampTime(offset, audioBuffer.duration);
+    if (startOffset >= audioBuffer.duration) {
+      offsetRef.current = audioBuffer.duration;
+      currentTimeRef.current = audioBuffer.duration;
+      notifyTimeListeners();
+      isPlayingRef.current = false;
+      setIsPlaying(false);
+      return false;
+    }
+    sourceRef.current = source;
+    offsetRef.current = startOffset;
+    startedAtRef.current = ctx.currentTime;
+
+    source.onended = () => {
+      if (sourceRef.current !== source) return;
+      sourceRef.current = null;
+      const endTime = audioBuffer.duration;
+      offsetRef.current = endTime;
+      currentTimeRef.current = endTime;
+      notifyTimeListeners();
+      isPlayingRef.current = false;
+      setIsPlaying(false);
+    };
+
+    source.start(0, startOffset);
+    currentTimeRef.current = startOffset;
+    notifyTimeListeners();
+    isPlayingRef.current = true;
+    setIsPlaying(true);
+    return true;
+  }, [audioBuffer, audioContextRef, notifyTimeListeners, stopSource]);
+
+  const play = useCallback(async () => {
+    if (!audioBuffer) return;
+    const ctx = audioContextRef.current;
+    if (!ctx) return;
+    if (ctx.state === 'suspended') {
+      await ctx.resume();
+    }
+    const startTime = currentTimeRef.current >= audioBuffer.duration ? 0 : currentTimeRef.current;
+    startSource(startTime);
+  }, [audioBuffer, audioContextRef, startSource]);
+
+  const pause = useCallback(() => {
+    if (!audioBuffer) return;
+    const time = getCurrentTime();
+    stopSource();
+    offsetRef.current = time;
+    currentTimeRef.current = time;
+    notifyTimeListeners();
+    isPlayingRef.current = false;
+    setIsPlaying(false);
+  }, [audioBuffer, getCurrentTime, notifyTimeListeners, stopSource]);
+
+  const togglePlay = useCallback(() => {
+    if (isPlayingRef.current) {
+      pause();
+    } else {
+      play().catch(() => {});
+    }
+  }, [pause, play]);
+
+  const seek = useCallback((time) => {
+    if (!audioBuffer) return;
+    const nextTime = clampTime(time, audioBuffer.duration);
+    const shouldResume = isPlayingRef.current;
+    stopSource();
+    offsetRef.current = nextTime;
+    currentTimeRef.current = nextTime;
+    notifyTimeListeners();
+    isPlayingRef.current = false;
+    setIsPlaying(false);
+    if (shouldResume && nextTime < audioBuffer.duration) {
+      startSource(nextTime);
+    }
+  }, [audioBuffer, notifyTimeListeners, startSource, stopSource]);
+
+  useEffect(() => {
+    stopSource();
+    offsetRef.current = 0;
+    currentTimeRef.current = 0;
+    notifyTimeListeners();
+    isPlayingRef.current = false;
+    setIsPlaying(false);
+  }, [audioBuffer, notifyTimeListeners, stopSource]);
+
+  useEffect(() => {
+    if (!isPlaying) return;
+    let rafId = 0;
+    const tick = () => {
+      const time = getCurrentTime();
+      currentTimeRef.current = time;
+      rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [getCurrentTime, isPlaying]);
+
+  useEffect(() => {
+    return () => stopSource();
+  }, [stopSource]);
+
+  return {
+    currentTimeRef,
+    duration,
+    isPlaying,
+    getCurrentTime,
+    subscribeTime,
+    play,
+    pause,
+    seek,
+    togglePlay,
+  };
+}
+
+const TransportTime = React.memo(({ currentTimeRef, duration, isPlaying, getCurrentTime, subscribeTime }) => {
+  const [displayTime, setDisplayTime] = useState(() => currentTimeRef.current);
+
+  useEffect(() => {
+    return subscribeTime(() => {
+      setDisplayTime(currentTimeRef.current);
+    });
+  }, [currentTimeRef, subscribeTime]);
+
+  useEffect(() => {
+    if (!isPlaying) return;
+    let rafId = 0;
+    const tick = () => {
+      setDisplayTime(getCurrentTime());
+      rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [getCurrentTime, isPlaying]);
+
+  return (
+    <span className={css.transportTime}>
+      {formatSeconds(displayTime, 2)} / {formatSeconds(duration, 2)}
+    </span>
+  );
+});
+
 const BeatMarkerItem = React.memo(({ marker, disabled, onSeek, onDelete }) => {
   return (
     <li className={marker.type === 'downbeat' ? css.markerDownbeat : ''}>
@@ -108,7 +309,6 @@ const BeatMarkerItem = React.memo(({ marker, disabled, onSeek, onDelete }) => {
 
 export const BeatTapper = () => {
   const [file, setFile] = useState(null);
-  const [audioUrl, setAudioUrl] = useState(null);
   const [audioBuffer, setAudioBuffer] = useState(null);
   const [decoding, setDecoding] = useState(false);
   const [error, setError] = useState(null);
@@ -126,7 +326,6 @@ export const BeatTapper = () => {
     [lyricsText, audioBuffer]
   );
 
-  const audioRef = useRef(null);
   const audioContextRef = useRef(null);
   const markerIdRef = useRef(0);
   const lyricsTextareaRef = useRef(null);
@@ -136,6 +335,18 @@ export const BeatTapper = () => {
   const flashingPadRef = useRef(null);
   const markersRef = useRef(markers);
   markersRef.current = markers;
+
+  const transport = useAudioBufferTransport(audioBuffer, audioContextRef);
+  const {
+    currentTimeRef,
+    duration,
+    isPlaying,
+    getCurrentTime,
+    subscribeTime,
+    pause,
+    seek,
+    togglePlay,
+  } = transport;
 
   const loadFile = useCallback(async (f) => {
     if (!f.type.startsWith('audio/')) {
@@ -147,11 +358,6 @@ export const BeatTapper = () => {
     setAudioBuffer(null);
     setFile(f);
     setDecoding(true);
-
-    setAudioUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return URL.createObjectURL(f);
-    });
 
     if (audioContextRef.current) {
       audioContextRef.current.close().catch(() => {});
@@ -174,12 +380,6 @@ export const BeatTapper = () => {
 
   useEffect(() => {
     return () => {
-      if (audioUrl) URL.revokeObjectURL(audioUrl);
-    };
-  }, [audioUrl]);
-
-  useEffect(() => {
-    return () => {
       if (audioContextRef.current) {
         audioContextRef.current.close().catch(() => {});
       }
@@ -187,9 +387,8 @@ export const BeatTapper = () => {
   }, []);
 
   const addMarker = useCallback((type = 'beat') => {
-    const audio = audioRef.current;
-    if (!audio || audio.paused) return;
-    const time = Math.max(0, audio.currentTime - (latencyMs || 0) / 1000);
+    if (!isPlaying) return;
+    const time = Math.max(0, getCurrentTime() - (latencyMs || 0) / 1000);
     setMarkers((prev) => {
       let closestIdx = -1;
       let closestDist = BEAT_REPLACE_THRESHOLD;
@@ -219,12 +418,10 @@ export const BeatTapper = () => {
         tapFlashTimerRef.current = null;
       }, TAP_FLASH_MS);
     }
-  }, [latencyMs]);
+  }, [getCurrentTime, isPlaying, latencyMs]);
 
   const removeMarkerBeforeCursor = useCallback(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    const cursorTime = audio.currentTime;
+    const cursorTime = getCurrentTime();
     setMarkers((prev) => {
       for (let i = prev.length - 1; i >= 0; i--) {
         if (prev[i].time <= cursorTime) {
@@ -233,12 +430,10 @@ export const BeatTapper = () => {
       }
       return prev;
     });
-  }, []);
+  }, [getCurrentTime]);
 
   const removeMarkerAfterCursor = useCallback(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    const cursorTime = audio.currentTime;
+    const cursorTime = getCurrentTime();
     setMarkers((prev) => {
       for (let i = 0; i < prev.length; i++) {
         if (prev[i].time > cursorTime) {
@@ -247,7 +442,7 @@ export const BeatTapper = () => {
       }
       return prev;
     });
-  }, []);
+  }, [getCurrentTime]);
 
   const deleteMarker = useCallback((id) => {
     setMarkers((prev) => prev.filter((m) => m.id !== id));
@@ -258,20 +453,9 @@ export const BeatTapper = () => {
     setMarkers([]);
   }, [markers.length]);
 
-  const togglePlay = useCallback(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    if (audio.paused) {
-      audio.play().catch(() => {});
-    } else {
-      audio.pause();
-    }
-  }, []);
-
   const onSeek = useCallback((time) => {
-    const audio = audioRef.current;
-    if (audio) audio.currentTime = time;
-  }, []);
+    seek(time);
+  }, [seek]);
 
   const seekToLyricBeforeCaret = useCallback((caret) => {
     const ta = lyricsTextareaRef.current;
@@ -290,12 +474,10 @@ export const BeatTapper = () => {
   }, [onSeek]);
 
   const insertLyricTimestamp = useCallback(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
     const ta = lyricsTextareaRef.current;
     if (!ta) return;
 
-    const time = Math.max(0, audio.currentTime - (latencyMs || 0) / 1000);
+    const time = Math.max(0, getCurrentTime() - (latencyMs || 0) / 1000);
     const stamp = `[${formatSeconds(time, 2)}]`;
     const text = ta.value;
     let start = ta.selectionStart;
@@ -323,7 +505,7 @@ export const BeatTapper = () => {
       el.focus();
       el.setSelectionRange(newPos, newPos);
     }, 0);
-  }, [latencyMs]);
+  }, [getCurrentTime, latencyMs]);
 
   useEffect(() => {
     const handler = (e) => {
@@ -335,14 +517,12 @@ export const BeatTapper = () => {
         togglePlay();
       } else if (e.key === 'ArrowLeft') {
         e.preventDefault();
-        const audio = audioRef.current;
         const step = e.shiftKey ? 0.1 : 1;
-        if (audio) audio.currentTime = Math.max(0, audio.currentTime - step);
+        if (audioBuffer) seek(getCurrentTime() - step);
       } else if (e.key === 'ArrowRight') {
         e.preventDefault();
-        const audio = audioRef.current;
         const step = e.shiftKey ? 0.1 : 1;
-        if (audio && audioBuffer) audio.currentTime = Math.min(audioBuffer.duration, audio.currentTime + step);
+        if (audioBuffer) seek(getCurrentTime() + step);
       } else if (activeTab === 'beats') {
         if (e.key === 't' || e.key === 'T') {
           e.preventDefault();
@@ -361,7 +541,7 @@ export const BeatTapper = () => {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [addMarker, togglePlay, removeMarkerBeforeCursor, removeMarkerAfterCursor, audioBuffer, activeTab]);
+  }, [addMarker, togglePlay, seek, getCurrentTime, removeMarkerBeforeCursor, removeMarkerAfterCursor, audioBuffer, activeTab]);
 
   const handleDragEnter = useCallback((e) => {
     e.preventDefault();
@@ -479,21 +659,31 @@ export const BeatTapper = () => {
       </div>
     )}
 
-    {audioUrl && <audio
-      ref={audioRef}
-      src={audioUrl}
-      controls
-      className={css.audioPlayer}
-    />}
-
     {decoding && <p className={css.statusMessage}>Decoding audio...</p>}
+
+    {audioBuffer && (
+      <div className={css.transportControls}>
+        <button type="button" onClick={togglePlay}>
+          {isPlaying ? 'Pause' : 'Play'}
+        </button>
+        <TransportTime
+          currentTimeRef={currentTimeRef}
+          duration={duration}
+          isPlaying={isPlaying}
+          getCurrentTime={getCurrentTime}
+          subscribeTime={subscribeTime}
+        />
+      </div>
+    )}
 
     {audioBuffer && <Waveform
       audioBuffer={audioBuffer}
-      audioRef={audioRef}
+      currentTimeRef={currentTimeRef}
+      isPlaying={isPlaying}
       markersRef={markersRef}
       lyricChunks={lyricChunks}
       onSeek={onSeek}
+      onPause={pause}
     />}
 
     <div className={css.tabs} role="tablist">

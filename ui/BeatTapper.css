@@ -65,8 +65,20 @@
   }
 }
 
-.audioPlayer {
-  width: 100%;
+.transportControls {
+  display: flex;
+  align-items: center;
+  gap: var(--gap);
+  padding: 8px 10px;
+  background: var(--content-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+}
+
+.transportTime {
+  font-family: monospace;
+  font-size: 13px;
+  color: var(--muted-text-color);
 }
 
 .lyricsRow {
