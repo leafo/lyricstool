@@ -1,5 +1,5 @@
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useLayoutEffect, useRef } from 'react';
 
 import * as css from './BeatTapper.css';
 
@@ -45,34 +45,54 @@ function renderWaveformOffscreen(audioBuffer, pixelsPerSecond) {
   return canvas;
 }
 
-// Resolve scroll geometry: where in the offscreen image to source from, and where the cursor sits on screen.
-function computeLayout(currentTime, pps, totalWidth, viewWidth) {
-  const cursorTimeX = currentTime * pps;
-  const half = viewWidth / 2;
-  let srcX = cursorTimeX - half;
-  let cursorX = half;
-
-  if (totalWidth <= viewWidth) {
-    srcX = 0;
-    cursorX = cursorTimeX;
-  } else if (srcX < 0) {
-    srcX = 0;
-    cursorX = cursorTimeX;
-  } else if (srcX > totalWidth - viewWidth) {
-    srcX = totalWidth - viewWidth;
-    cursorX = cursorTimeX - srcX;
-  }
-
+// Cursor stays centered; srcX may be negative or exceed totalWidth so empty space
+// appears before/after the song while the cursor pins to the middle.
+function computeLayout(currentTime, pps, viewWidth) {
+  const cursorX = viewWidth / 2;
+  const srcX = currentTime * pps - cursorX;
   return { srcX, cursorX };
 }
 
 const TAP_THRESHOLD_PX = 4;
+const LYRIC_CHUNK_PADDING_PX = 0;
 
-export const Waveform = ({ audioBuffer, audioRef, markers, onSeek }) => {
+const LyricChunk = ({ chunk, pps }) => {
+  const textRef = useRef(null);
+  const width = (chunk.endTime - chunk.time) * pps;
+
+  useLayoutEffect(() => {
+    const el = textRef.current;
+    if (!el) return;
+    el.style.transform = '';
+    const avail = width - LYRIC_CHUNK_PADDING_PX;
+    const natural = el.scrollWidth;
+    if (natural > avail && avail > 0) {
+      el.style.transform = `scaleX(${avail / natural})`;
+    }
+  }, [chunk.text, width]);
+
+  return (
+    <div
+      className={css.lyricChunk}
+      style={{ left: `${chunk.time * pps}px`, width: `${width}px` }}
+      title={chunk.text}
+    >
+      <span ref={textRef} className={css.lyricChunkText}>{chunk.text}</span>
+    </div>
+  );
+};
+
+export const Waveform = ({ audioBuffer, audioRef, markers, lyricChunks, onSeek }) => {
   const canvasRef = useRef(null);
   const offscreenRef = useRef(null);
   const ppsRef = useRef(PIXELS_PER_SECOND);
   const dragStateRef = useRef(null);
+  const lyricsScrollerRef = useRef(null);
+
+  const renderPps = audioBuffer && audioBuffer.duration * PIXELS_PER_SECOND > MAX_OFFSCREEN_WIDTH
+    ? MAX_OFFSCREEN_WIDTH / audioBuffer.duration
+    : PIXELS_PER_SECOND;
+  const totalWidth = audioBuffer ? Math.ceil(audioBuffer.duration * renderPps) : 0;
 
   useEffect(() => {
     if (!audioBuffer) {
@@ -116,14 +136,17 @@ export const Waveform = ({ audioBuffer, audioRef, markers, onSeek }) => {
           const audio = audioRef.current;
           const currentTime = audio ? audio.currentTime : 0;
           const pps = ppsRef.current;
-          const { srcX, cursorX } = computeLayout(currentTime, pps, offscreen.width, viewWidth);
+          const { srcX, cursorX } = computeLayout(currentTime, pps, viewWidth);
 
-          const drawWidth = Math.min(viewWidth, offscreen.width - srcX);
+          const visibleSrcStart = Math.max(0, srcX);
+          const visibleSrcEnd = Math.min(offscreen.width, srcX + viewWidth);
+          const drawWidth = Math.max(0, visibleSrcEnd - visibleSrcStart);
+          const destX = Math.max(0, -srcX);
           if (drawWidth > 0) {
             ctx.drawImage(
               offscreen,
-              srcX, 0, drawWidth, offscreen.height,
-              0, 0, drawWidth, viewHeight
+              visibleSrcStart, 0, drawWidth, offscreen.height,
+              destX, 0, drawWidth, viewHeight
             );
           }
 
@@ -176,6 +199,11 @@ export const Waveform = ({ audioBuffer, audioRef, markers, onSeek }) => {
           ctx.moveTo(cx, 0);
           ctx.lineTo(cx, viewHeight);
           ctx.stroke();
+
+          const scroller = lyricsScrollerRef.current;
+          if (scroller) {
+            scroller.style.transform = `translate3d(${-srcX}px, 0, 0)`;
+          }
         }
       }
 
@@ -196,7 +224,7 @@ export const Waveform = ({ audioBuffer, audioRef, markers, onSeek }) => {
     const audio = audioRef.current;
     const currentTime = audio ? audio.currentTime : 0;
     const pps = ppsRef.current;
-    const { srcX } = computeLayout(currentTime, pps, offscreen.width, rect.width);
+    const { srcX } = computeLayout(currentTime, pps, rect.width);
 
     const time = Math.max(0, Math.min(audioBuffer.duration, (srcX + x) / pps));
     onSeek(time);
@@ -256,14 +284,35 @@ export const Waveform = ({ audioBuffer, audioRef, markers, onSeek }) => {
     try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
   };
 
-  return <div className={css.waveformContainer}>
-    <canvas
-      ref={canvasRef}
-      className={css.waveformVisible}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerCancel={handlePointerCancel}
-    />
-  </div>;
+  return <>
+    {lyricChunks && lyricChunks.length > 0 && (
+      <div className={css.lyricsRow}>
+        <div
+          ref={lyricsScrollerRef}
+          className={css.lyricsScroller}
+          style={{ width: `${totalWidth}px` }}
+        >
+          {lyricChunks.map((c) => (
+            <React.Fragment key={c.id}>
+              <LyricChunk chunk={c} pps={renderPps} />
+              <div
+                className={css.lyricChunkPointer}
+                style={{ left: `${c.time * renderPps}px` }}
+              />
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
+    )}
+    <div className={css.waveformContainer}>
+      <canvas
+        ref={canvasRef}
+        className={css.waveformVisible}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
+      />
+    </div>
+  </>;
 };

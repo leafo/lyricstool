@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 
 import { Waveform } from './Waveform.js';
 import { CalibrateLatencyDialog } from './CalibrateLatencyDialog.js';
@@ -78,6 +78,37 @@ function formatInlineTime(seconds) {
   return `${m}:${s}`;
 }
 
+const LYRIC_STAMP_RE = /\[(\d+):(\d{1,2}(?:\.\d+)?)\]/g;
+
+function parseLyricChunks(text, defaultEndTime) {
+  if (!text) return [];
+  const chunks = [];
+  const lines = text.split('\n');
+  for (const line of lines) {
+    LYRIC_STAMP_RE.lastIndex = 0;
+    const matches = [];
+    let m;
+    while ((m = LYRIC_STAMP_RE.exec(line)) !== null) {
+      const minutes = parseInt(m[1], 10);
+      const seconds = parseFloat(m[2]);
+      if (isFinite(minutes) && isFinite(seconds)) {
+        matches.push({ time: minutes * 60 + seconds, start: m.index, end: m.index + m[0].length });
+      }
+    }
+    for (let i = 0; i < matches.length; i++) {
+      const stampEnd = matches[i].end;
+      const textEnd = i + 1 < matches.length ? matches[i + 1].start : line.length;
+      chunks.push({ time: matches[i].time, text: line.substring(stampEnd, textEnd) });
+    }
+  }
+  chunks.sort((a, b) => a.time - b.time);
+  return chunks.map((c, i) => ({
+    ...c,
+    id: i,
+    endTime: i + 1 < chunks.length ? chunks[i + 1].time : defaultEndTime,
+  }));
+}
+
 export const BeatTapper = () => {
   const [file, setFile] = useState(null);
   const [audioUrl, setAudioUrl] = useState(null);
@@ -92,6 +123,11 @@ export const BeatTapper = () => {
   const [lyricsText, setLyricsText] = useState('');
 
   const [latencyMs] = useConfig('tap_latency_ms');
+
+  const lyricChunks = useMemo(
+    () => audioBuffer ? parseLyricChunks(lyricsText, audioBuffer.duration) : [],
+    [lyricsText, audioBuffer]
+  );
 
   const audioRef = useRef(null);
   const audioContextRef = useRef(null);
@@ -230,10 +266,26 @@ export const BeatTapper = () => {
 
     const time = Math.max(0, audio.currentTime - (latencyMs || 0) / 1000);
     const stamp = `[${formatInlineTime(time)}]`;
-    const start = ta.selectionStart;
-    const end = ta.selectionEnd;
+    const text = ta.value;
+    let start = ta.selectionStart;
+    let end = ta.selectionEnd;
 
-    setLyricsText((prev) => prev.slice(0, start) + stamp + prev.slice(end));
+    if (start === end) {
+      LYRIC_STAMP_RE.lastIndex = 0;
+      let m;
+      while ((m = LYRIC_STAMP_RE.exec(text)) !== null) {
+        const ms = m.index;
+        const me = m.index + m[0].length;
+        if (start >= ms && start <= me) {
+          start = ms;
+          end = me;
+          break;
+        }
+      }
+    }
+
+    const newText = text.slice(0, start) + stamp + text.slice(end);
+    setLyricsText(newText);
 
     const newPos = start + stamp.length;
     setTimeout(() => {
@@ -411,6 +463,7 @@ export const BeatTapper = () => {
       audioBuffer={audioBuffer}
       audioRef={audioRef}
       markers={markers}
+      lyricChunks={lyricChunks}
       onSeek={onSeek}
     />}
 
