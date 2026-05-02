@@ -144,7 +144,7 @@
 .tabs {
   display: flex;
   gap: 2px;
-  border-bottom: 2px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
   margin-top: var(--gap);
 }
 
@@ -157,17 +157,17 @@
   border-bottom: none;
   border-radius: var(--border-radius) var(--border-radius) 0 0;
   font-size: 14px;
-  margin-bottom: -2px;
+  margin-bottom: -1px;
 }
 
-.tab:hover {
+.tab:hover:not(.tabActive) {
   background: rgba(0, 0, 0, 0.05);
 }
 
 .tabActive {
   background: var(--content-bg);
   border-color: var(--border-color);
-  border-bottom: 2px solid var(--content-bg);
+  border-bottom: 1px solid var(--content-bg);
   font-weight: bold;
 }
 

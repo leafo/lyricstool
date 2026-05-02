@@ -117,6 +117,7 @@ export const BeatTapper = () => {
   const [showCalibrate, setShowCalibrate] = useState(false);
   const [activeTab, setActiveTab] = useState('beats');
   const [lyricsText, setLyricsText] = useState('');
+  const [showMarkerList, setShowMarkerList] = useState(true);
 
   const [latencyMs] = useConfig('tap_latency_ms');
 
@@ -537,9 +538,17 @@ export const BeatTapper = () => {
       <div className={css.markerSection}>
         <div className={css.markerHeader}>
           <h3>Beat markers ({markers.length})</h3>
+          <button
+            type="button"
+            onClick={() => setShowMarkerList((s) => !s)}
+            aria-pressed={!showMarkerList}
+            title="Hide the marker list to reduce render cost while tapping"
+          >
+            {showMarkerList ? 'Hide list' : 'Show list'}
+          </button>
           <button type="button" onClick={clearAll} disabled={markers.length === 0}>Clear all</button>
         </div>
-        {markers.length > 0 ? (
+        {showMarkerList && (markers.length > 0 ? (
           <ul className={css.markerList}>
             {markers.map((m) => (
               <BeatMarkerItem
@@ -557,8 +566,8 @@ export const BeatTapper = () => {
               ? <>No markers yet. Press <kbd>T</kbd> (beat) or <kbd>R</kbd> (downbeat) while playing.</>
               : <>No markers. Load an audio file to start tapping, or load a saved session.</>}
           </p>
-        )}
-        {audioBuffer && (
+        ))}
+        {showMarkerList && audioBuffer && (
           <p className={css.help}>
             <strong>Keys:</strong> <kbd>T</kbd> beat · <kbd>R</kbd> downbeat · <kbd>Space</kbd> play/pause · <kbd>U</kbd>/<kbd>Backspace</kbd> delete before cursor · <kbd>X</kbd> delete after cursor · <kbd>←</kbd>/<kbd>→</kbd> seek 1s (<kbd>Shift</kbd> 0.1s) · click waveform to seek
           </p>
