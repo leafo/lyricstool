@@ -114,7 +114,6 @@ export const BeatTapper = () => {
   const [error, setError] = useState(null);
   const [dragActive, setDragActive] = useState(false);
   const [markers, setMarkers] = useState([]);
-  const [tapFlash, setTapFlash] = useState(null);
   const [showCalibrate, setShowCalibrate] = useState(false);
   const [activeTab, setActiveTab] = useState('beats');
   const [lyricsText, setLyricsText] = useState('');
@@ -131,6 +130,9 @@ export const BeatTapper = () => {
   const markerIdRef = useRef(0);
   const lyricsTextareaRef = useRef(null);
   const tapFlashTimerRef = useRef(null);
+  const beatPadRef = useRef(null);
+  const downbeatPadRef = useRef(null);
+  const flashingPadRef = useRef(null);
   const markersRef = useRef(markers);
   markersRef.current = markers;
 
@@ -202,12 +204,20 @@ export const BeatTapper = () => {
       next.sort((a, b) => a.time - b.time);
       return next;
     });
-    setTapFlash(type);
-    if (tapFlashTimerRef.current) clearTimeout(tapFlashTimerRef.current);
-    tapFlashTimerRef.current = setTimeout(() => {
-      tapFlashTimerRef.current = null;
-      setTapFlash(null);
-    }, TAP_FLASH_MS);
+    const pad = type === 'downbeat' ? downbeatPadRef.current : beatPadRef.current;
+    if (pad) {
+      const prevPad = flashingPadRef.current;
+      if (prevPad && prevPad !== pad) prevPad.classList.remove(css.tapFlash);
+      pad.classList.add(css.tapFlash);
+      flashingPadRef.current = pad;
+      if (tapFlashTimerRef.current) clearTimeout(tapFlashTimerRef.current);
+      tapFlashTimerRef.current = setTimeout(() => {
+        const flashing = flashingPadRef.current;
+        if (flashing) flashing.classList.remove(css.tapFlash);
+        flashingPadRef.current = null;
+        tapFlashTimerRef.current = null;
+      }, TAP_FLASH_MS);
+    }
   }, [latencyMs]);
 
   const removeMarkerBeforeCursor = useCallback(() => {
@@ -504,16 +514,18 @@ export const BeatTapper = () => {
 
     {activeTab === 'beats' && audioBuffer && <div className={css.tapPadGroup}>
       <button
+        ref={downbeatPadRef}
         type="button"
-        className={`${css.tapPad} ${css.tapPadDownbeat} ${tapFlash === 'downbeat' ? css.tapFlash : ''}`}
+        className={`${css.tapPad} ${css.tapPadDownbeat}`}
         onMouseDown={(e) => { e.preventDefault(); addMarker('downbeat'); }}
         onTouchStart={(e) => { e.preventDefault(); addMarker('downbeat'); }}
       >
         Downbeat (R)
       </button>
       <button
+        ref={beatPadRef}
         type="button"
-        className={`${css.tapPad} ${tapFlash === 'beat' ? css.tapFlash : ''}`}
+        className={css.tapPad}
         onMouseDown={(e) => { e.preventDefault(); addMarker('beat'); }}
         onTouchStart={(e) => { e.preventDefault(); addMarker('beat'); }}
       >
