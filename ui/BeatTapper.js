@@ -11,6 +11,8 @@ import * as css from './BeatTapper.css';
 const BEAT_REPLACE_THRESHOLD = 0.12;
 const TAP_FLASH_MS = 90;
 const TRANSPORT_TIME_UPDATE_MS = 100;
+const BEAT_CLICK_DURATION = 0.04;
+const BEAT_CLICK_LOOKAHEAD_EPSILON = 0.002;
 
 function clampTime(time, duration) {
   if (!isFinite(time)) return 0;
@@ -93,11 +95,27 @@ function parseLyricChunks(text, defaultEndTime) {
 
 const PLAYBACK_RATES = [0.5, 0.75, 1.0, 1.25, 1.5];
 
-function useAudioBufferTransport(audioBuffer, audioContextRef) {
+function createBeatClickBuffer(ctx, frequency, gain) {
+  const length = Math.max(1, Math.ceil(ctx.sampleRate * BEAT_CLICK_DURATION));
+  const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+
+  for (let i = 0; i < length; i++) {
+    const t = i / ctx.sampleRate;
+    const env = Math.exp(-t * 95);
+    data[i] = Math.sin(2 * Math.PI * frequency * t) * gain * env;
+  }
+
+  return buffer;
+}
+
+function useAudioBufferTransport(audioBuffer, audioContextRef, markersRef, markers, beatClickEnabled) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackRate, setPlaybackRateState] = useState(1.0);
 
   const sourceRef = useRef(null);
+  const beatClickSourcesRef = useRef([]);
+  const beatClickBuffersRef = useRef(null);
   const startedAtRef = useRef(0);
   const offsetRef = useRef(0);
   const currentTimeRef = useRef(0);
@@ -106,6 +124,59 @@ function useAudioBufferTransport(audioBuffer, audioContextRef) {
   const timeListenersRef = useRef(new Set());
 
   const duration = audioBuffer?.duration || 0;
+
+  const stopBeatClickSources = useCallback(() => {
+    const sources = beatClickSourcesRef.current;
+    beatClickSourcesRef.current = [];
+    for (const source of sources) {
+      source.onended = null;
+      try {
+        source.stop();
+      } catch (_) {}
+      try {
+        source.disconnect();
+      } catch (_) {}
+    }
+  }, []);
+
+  const getBeatClickBuffers = useCallback((ctx) => {
+    const cached = beatClickBuffersRef.current;
+    if (cached && cached.sampleRate === ctx.sampleRate) return cached;
+    const next = {
+      sampleRate: ctx.sampleRate,
+      beat: createBeatClickBuffer(ctx, 1200, 0.38),
+      downbeat: createBeatClickBuffer(ctx, 1800, 0.55),
+    };
+    beatClickBuffersRef.current = next;
+    return next;
+  }, []);
+
+  const scheduleBeatClicks = useCallback((startOffset, contextStartTime) => {
+    const ctx = audioContextRef.current;
+    stopBeatClickSources();
+    if (!ctx || !beatClickEnabled) return;
+
+    const rate = playbackRateRef.current;
+    const buffers = getBeatClickBuffers(ctx);
+    const sources = [];
+    const minMarkerTime = startOffset - BEAT_CLICK_LOOKAHEAD_EPSILON;
+
+    for (const marker of markersRef.current) {
+      if (marker.time < minMarkerTime || marker.time > duration) continue;
+      const when = contextStartTime + (marker.time - startOffset) / rate;
+      if (when < ctx.currentTime) continue;
+      const source = ctx.createBufferSource();
+      source.buffer = marker.type === 'downbeat' ? buffers.downbeat : buffers.beat;
+      source.connect(ctx.destination);
+      source.onended = () => {
+        source.disconnect();
+      };
+      source.start(when);
+      sources.push(source);
+    }
+
+    beatClickSourcesRef.current = sources;
+  }, [audioContextRef, beatClickEnabled, duration, getBeatClickBuffers, markersRef, stopBeatClickSources]);
 
   const notifyTimeListeners = useCallback(() => {
     for (const listener of timeListenersRef.current) {
@@ -128,6 +199,7 @@ function useAudioBufferTransport(audioBuffer, audioContextRef) {
   }, [audioContextRef, duration]);
 
   const stopSource = useCallback(() => {
+    stopBeatClickSources();
     const source = sourceRef.current;
     if (!source) return;
     sourceRef.current = null;
@@ -138,7 +210,7 @@ function useAudioBufferTransport(audioBuffer, audioContextRef) {
     try {
       source.disconnect();
     } catch (_) {}
-  }, []);
+  }, [stopBeatClickSources]);
 
   const startSource = useCallback((offset) => {
     const ctx = audioContextRef.current;
@@ -163,10 +235,12 @@ function useAudioBufferTransport(audioBuffer, audioContextRef) {
     sourceRef.current = source;
     offsetRef.current = startOffset;
     startedAtRef.current = ctx.currentTime;
+    scheduleBeatClicks(startOffset, startedAtRef.current);
 
     source.onended = () => {
       if (sourceRef.current !== source) return;
       sourceRef.current = null;
+      stopBeatClickSources();
       const endTime = audioBuffer.duration;
       offsetRef.current = endTime;
       currentTimeRef.current = endTime;
@@ -181,7 +255,7 @@ function useAudioBufferTransport(audioBuffer, audioContextRef) {
     isPlayingRef.current = true;
     setIsPlaying(true);
     return true;
-  }, [audioBuffer, audioContextRef, notifyTimeListeners, stopSource]);
+  }, [audioBuffer, audioContextRef, notifyTimeListeners, scheduleBeatClicks, stopBeatClickSources, stopSource]);
 
   const play = useCallback(async () => {
     if (!audioBuffer) return;
@@ -220,16 +294,21 @@ function useAudioBufferTransport(audioBuffer, audioContextRef) {
     const source = sourceRef.current;
     if (source && ctx && isPlayingRef.current) {
       const now = ctx.currentTime;
+      const previousRate = playbackRateRef.current;
       offsetRef.current = clampTime(
-        offsetRef.current + (now - startedAtRef.current) * playbackRateRef.current,
+        offsetRef.current + (now - startedAtRef.current) * previousRate,
         duration,
       );
       startedAtRef.current = now;
+      playbackRateRef.current = rate;
       source.playbackRate.setValueAtTime(rate, now);
+      stopBeatClickSources();
+      scheduleBeatClicks(offsetRef.current, now);
+    } else {
+      playbackRateRef.current = rate;
     }
-    playbackRateRef.current = rate;
     setPlaybackRateState(rate);
-  }, [audioContextRef, duration]);
+  }, [audioContextRef, duration, scheduleBeatClicks, stopBeatClickSources]);
 
   const seek = useCallback((time) => {
     if (!audioBuffer) return;
@@ -266,6 +345,23 @@ function useAudioBufferTransport(audioBuffer, audioContextRef) {
     rafId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafId);
   }, [getCurrentTime, isPlaying]);
+
+  useEffect(() => {
+    if (!isPlayingRef.current) {
+      stopBeatClickSources();
+      return;
+    }
+
+    const ctx = audioContextRef.current;
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+    const time = getCurrentTime();
+    offsetRef.current = time;
+    currentTimeRef.current = time;
+    startedAtRef.current = now;
+    scheduleBeatClicks(time, now);
+  }, [audioContextRef, beatClickEnabled, getCurrentTime, markers, scheduleBeatClicks, stopBeatClickSources]);
 
   useEffect(() => {
     return () => stopSource();
@@ -342,6 +438,7 @@ export const BeatTapper = () => {
   const [activeTab, setActiveTab] = useState('beats');
   const [lyricsText, setLyricsText] = useState('');
   const [showMarkerList, setShowMarkerList] = useState(true);
+  const [beatClickEnabled, setBeatClickEnabled] = useState(false);
 
   const [latencyMs] = useConfig('tap_latency_ms');
 
@@ -360,7 +457,7 @@ export const BeatTapper = () => {
   const markersRef = useRef(markers);
   markersRef.current = markers;
 
-  const transport = useAudioBufferTransport(audioBuffer, audioContextRef);
+  const transport = useAudioBufferTransport(audioBuffer, audioContextRef, markersRef, markers, beatClickEnabled);
   const {
     currentTimeRef,
     duration,
@@ -413,7 +510,7 @@ export const BeatTapper = () => {
   }, []);
 
   const addMarker = useCallback((type = 'beat') => {
-    if (!isPlaying) return;
+    if (!isPlaying || beatClickEnabled) return;
     const time = Math.max(0, getCurrentTime() - ((latencyMs || 0) / 1000) * playbackRate);
     setMarkers((prev) => {
       let closestIdx = -1;
@@ -444,7 +541,7 @@ export const BeatTapper = () => {
         tapFlashTimerRef.current = null;
       }, TAP_FLASH_MS);
     }
-  }, [getCurrentTime, isPlaying, latencyMs, playbackRate]);
+  }, [beatClickEnabled, getCurrentTime, isPlaying, latencyMs, playbackRate]);
 
   const removeMarkerBeforeCursor = useCallback(() => {
     const cursorTime = getCurrentTime();
@@ -699,6 +796,14 @@ export const BeatTapper = () => {
           getCurrentTime={getCurrentTime}
           subscribeTime={subscribeTime}
         />
+        <label className={css.transportToggle}>
+          <input
+            type="checkbox"
+            checked={beatClickEnabled}
+            onChange={(e) => setBeatClickEnabled(e.target.checked)}
+          />
+          Beat clicks
+        </label>
         <label className={css.transportRate}>
           Speed
           <select
@@ -745,6 +850,8 @@ export const BeatTapper = () => {
         ref={downbeatPadRef}
         type="button"
         className={`${css.tapPad} ${css.tapPadDownbeat}`}
+        disabled={beatClickEnabled}
+        title={beatClickEnabled ? 'Disable beat clicks to record taps' : undefined}
         onMouseDown={(e) => { e.preventDefault(); addMarker('downbeat'); }}
         onTouchStart={(e) => { e.preventDefault(); addMarker('downbeat'); }}
       >
@@ -754,6 +861,8 @@ export const BeatTapper = () => {
         ref={beatPadRef}
         type="button"
         className={css.tapPad}
+        disabled={beatClickEnabled}
+        title={beatClickEnabled ? 'Disable beat clicks to record taps' : undefined}
         onMouseDown={(e) => { e.preventDefault(); addMarker('beat'); }}
         onTouchStart={(e) => { e.preventDefault(); addMarker('beat'); }}
       >
@@ -813,6 +922,9 @@ export const BeatTapper = () => {
             if (e.code === 'Space' && (e.ctrlKey || e.metaKey)) {
               e.preventDefault();
               insertLyricTimestamp();
+            } else if (e.code === 'Space' && e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+              e.preventDefault();
+              togglePlay();
             }
           }}
           onClick={(e) => {
@@ -825,7 +937,7 @@ export const BeatTapper = () => {
         />
         {audioBuffer && (
           <p className={css.help}>
-            <strong>Keys (in textarea):</strong> <kbd>Ctrl</kbd>+<kbd>Space</kbd> insert timestamp at caret · <kbd>Ctrl</kbd>+click seeks to nearest timestamp before caret · <strong>Global:</strong> <kbd>Space</kbd> play/pause · <kbd>←</kbd>/<kbd>→</kbd> seek 1s (<kbd>Shift</kbd> 0.1s) · click waveform to seek
+            <strong>Keys (in textarea):</strong> <kbd>Ctrl</kbd>+<kbd>Space</kbd> insert timestamp at caret · <kbd>Shift</kbd>+<kbd>Space</kbd> play/pause · <kbd>Ctrl</kbd>+click seeks to nearest timestamp before caret · <strong>Global:</strong> <kbd>Space</kbd> play/pause · <kbd>←</kbd>/<kbd>→</kbd> seek 1s (<kbd>Shift</kbd> 0.1s) · click waveform to seek
           </p>
         )}
       </div>

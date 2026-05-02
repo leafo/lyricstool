@@ -100,6 +100,18 @@
   }
 }
 
+.transportToggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted-text-color);
+
+  input {
+    margin: 0;
+  }
+}
+
 .lyricsRow {
   position: relative;
   width: 100%;
