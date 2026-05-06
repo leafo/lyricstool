@@ -41,6 +41,7 @@ function parseSession(parsed) {
     return {
       beats: parsed.map((time) => ({ time, type: 'beat' })),
       lyrics: null,
+      chords: null,
     };
   }
   if (parsed && typeof parsed === 'object' && Array.isArray(parsed.beats)) {
@@ -51,7 +52,15 @@ function parseSession(parsed) {
       }))
       .filter((b) => isFinite(b.time) && b.time >= 0);
     const lyrics = typeof parsed.lyrics === 'string' ? parsed.lyrics : null;
-    return { beats, lyrics };
+    const chords = Array.isArray(parsed.chords)
+      ? parsed.chords
+          .map((c) => ({
+            time: typeof c.time === 'number' ? c.time : NaN,
+            name: typeof c.name === 'string' ? c.name : '',
+          }))
+          .filter((c) => isFinite(c.time) && c.time >= 0 && c.name)
+      : null;
+    return { beats, lyrics, chords };
   }
   return null;
 }
@@ -94,6 +103,19 @@ function parseLyricChunks(text, defaultEndTime) {
 }
 
 const PLAYBACK_RATES = [0.5, 0.75, 1.0, 1.25, 1.5];
+
+const RECENT_CHORDS_LIMIT = 8;
+
+function findNearestBeatTime(rawTime, markers) {
+  if (!markers || markers.length === 0) return rawTime;
+  let best = markers[0].time;
+  let bestDist = Math.abs(rawTime - best);
+  for (let i = 1; i < markers.length; i++) {
+    const d = Math.abs(rawTime - markers[i].time);
+    if (d < bestDist) { bestDist = d; best = markers[i].time; }
+  }
+  return best;
+}
 
 function createBeatClickBuffer(ctx, frequency, gain) {
   const length = Math.max(1, Math.ceil(ctx.sampleRate * BEAT_CLICK_DURATION));
@@ -427,6 +449,48 @@ const BeatMarkerItem = React.memo(({ marker, disabled, onSeek, onDelete }) => {
   );
 });
 
+const ChordTableRow = React.memo(({ chord, onSeek, onUpdate, onDelete }) => {
+  const [draftName, setDraftName] = useState(chord.name);
+
+  useEffect(() => {
+    setDraftName(chord.name);
+  }, [chord.name]);
+
+  const commit = () => {
+    if (draftName !== chord.name) onUpdate(chord.id, { name: draftName });
+  };
+
+  return (
+    <li>
+      <button
+        type="button"
+        className={css.markerSeek}
+        onClick={() => onSeek(chord.time)}
+      >
+        {formatSeconds(chord.time, 3)}
+      </button>
+      <input
+        type="text"
+        className={css.chordNameInput}
+        value={draftName}
+        placeholder="(empty)"
+        onChange={(e) => setDraftName(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); }
+          else if (e.key === 'Escape') { setDraftName(chord.name); e.target.blur(); }
+        }}
+      />
+      <button
+        type="button"
+        className={css.markerDelete}
+        onClick={() => onDelete(chord.id)}
+        aria-label="Delete chord"
+      >×</button>
+    </li>
+  );
+});
+
 export const BeatTapper = () => {
   const [file, setFile] = useState(null);
   const [audioBuffer, setAudioBuffer] = useState(null);
@@ -434,6 +498,7 @@ export const BeatTapper = () => {
   const [error, setError] = useState(null);
   const [dragActive, setDragActive] = useState(false);
   const [markers, setMarkers] = useState([]);
+  const [chords, setChords] = useState([]);
   const [showCalibrate, setShowCalibrate] = useState(false);
   const [activeTab, setActiveTab] = useState('beats');
   const [lyricsText, setLyricsText] = useState('');
@@ -447,8 +512,21 @@ export const BeatTapper = () => {
     [lyricsText, audioBuffer]
   );
 
+  const recentChordNames = useMemo(() => {
+    const seen = new Set();
+    const out = [];
+    for (let i = chords.length - 1; i >= 0 && out.length < RECENT_CHORDS_LIMIT; i--) {
+      const name = chords[i].name;
+      if (!name || seen.has(name)) continue;
+      seen.add(name);
+      out.push(name);
+    }
+    return out;
+  }, [chords]);
+
   const audioContextRef = useRef(null);
   const markerIdRef = useRef(0);
+  const chordIdRef = useRef(0);
   const lyricsTextareaRef = useRef(null);
   const tapFlashTimerRef = useRef(null);
   const beatPadRef = useRef(null);
@@ -576,6 +654,34 @@ export const BeatTapper = () => {
     setMarkers([]);
   }, [markers.length]);
 
+  const addChordAtTime = useCallback((rawTime) => {
+    const id = ++chordIdRef.current;
+    setChords((prev) => {
+      const snappedTime = findNearestBeatTime(rawTime, markers);
+      const next = [...prev, { id, time: snappedTime, name: '' }];
+      next.sort((a, b) => a.time - b.time);
+      return next;
+    });
+    return id;
+  }, [markers]);
+
+  const updateChord = useCallback((id, patch) => {
+    setChords((prev) => {
+      const next = prev.map((c) => c.id === id ? { ...c, ...patch } : c);
+      if ('time' in patch) next.sort((a, b) => a.time - b.time);
+      return next;
+    });
+  }, []);
+
+  const deleteChord = useCallback((id) => {
+    setChords((prev) => prev.filter((c) => c.id !== id));
+  }, []);
+
+  const clearAllChords = useCallback(() => {
+    if (chords.length > 0 && !confirm(`Clear all ${chords.length} chords?`)) return;
+    setChords([]);
+  }, [chords.length]);
+
   const onSeek = useCallback((time) => {
     seek(time);
   }, [seek]);
@@ -691,10 +797,11 @@ export const BeatTapper = () => {
   }, [loadFile]);
 
   const exportPayload = useCallback(() => ({
-    version: 3,
+    version: 4,
     beats: markers.map((m) => ({ time: m.time, type: m.type })),
     lyrics: lyricsText,
-  }), [markers, lyricsText]);
+    chords: chords.map((c) => ({ time: c.time, name: c.name })),
+  }), [markers, lyricsText, chords]);
 
   const onLoadJson = useCallback(async () => {
     let f;
@@ -724,6 +831,9 @@ export const BeatTapper = () => {
     if (lyricsText && loaded.lyrics !== null && loaded.lyrics !== lyricsText) {
       replaceParts.push('replace existing lyrics');
     }
+    if (chords.length > 0 && loaded.chords !== null) {
+      replaceParts.push(`replace ${chords.length} existing chord${chords.length === 1 ? '' : 's'} with ${loaded.chords.length}`);
+    }
     if (replaceParts.length > 0 && !confirm(`This will ${replaceParts.join(' and ')}. Continue?`)) {
       return;
     }
@@ -738,7 +848,15 @@ export const BeatTapper = () => {
     if (loaded.lyrics !== null) {
       setLyricsText(loaded.lyrics);
     }
-  }, [markers.length, lyricsText]);
+    if (loaded.chords !== null) {
+      const sortedChords = [...loaded.chords].sort((a, b) => a.time - b.time);
+      setChords(sortedChords.map((c) => ({
+        id: ++chordIdRef.current,
+        time: c.time,
+        name: c.name,
+      })));
+    }
+  }, [markers.length, lyricsText, chords.length]);
 
   const onDownloadJson = useCallback(() => {
     const data = JSON.stringify(exportPayload(), null, 2);
@@ -823,7 +941,13 @@ export const BeatTapper = () => {
       currentTimeRef={currentTimeRef}
       isPlaying={isPlaying}
       markersRef={markersRef}
+      markers={markers}
       lyricChunks={lyricChunks}
+      chords={chords}
+      recentChordNames={recentChordNames}
+      onAddChord={addChordAtTime}
+      onUpdateChord={updateChord}
+      onDeleteChord={deleteChord}
       onSeek={onSeek}
       onPause={pause}
     />}
@@ -843,6 +967,13 @@ export const BeatTapper = () => {
         className={`${css.tab} ${activeTab === 'lyrics' ? css.tabActive : ''}`}
         onClick={() => setActiveTab('lyrics')}
       >Lyrics</button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={activeTab === 'chords'}
+        className={`${css.tab} ${activeTab === 'chords' ? css.tabActive : ''}`}
+        onClick={() => setActiveTab('chords')}
+      >Chords</button>
     </div>
 
     {activeTab === 'beats' && audioBuffer && <div className={css.tapPadGroup}>
@@ -938,6 +1069,34 @@ export const BeatTapper = () => {
         {audioBuffer && (
           <p className={css.help}>
             <strong>Keys (in textarea):</strong> <kbd>Ctrl</kbd>+<kbd>Space</kbd> insert timestamp at caret · <kbd>Shift</kbd>+<kbd>Space</kbd> play/pause · <kbd>Ctrl</kbd>+click seeks to nearest timestamp before caret · <strong>Global:</strong> <kbd>Space</kbd> play/pause · <kbd>←</kbd>/<kbd>→</kbd> seek 1s (<kbd>Shift</kbd> 0.1s) · click waveform to seek
+          </p>
+        )}
+      </div>
+    )}
+
+    {activeTab === 'chords' && (
+      <div className={css.markerSection}>
+        <div className={css.markerHeader}>
+          <h3>Chords ({chords.length})</h3>
+          <button type="button" onClick={clearAllChords} disabled={chords.length === 0}>Clear all</button>
+        </div>
+        {chords.length > 0 ? (
+          <ul className={css.chordList}>
+            {chords.map((c) => (
+              <ChordTableRow
+                key={c.id}
+                chord={c}
+                onSeek={onSeek}
+                onUpdate={updateChord}
+                onDelete={deleteChord}
+              />
+            ))}
+          </ul>
+        ) : (
+          <p className={css.emptyMessage}>
+            {audioBuffer
+              ? <>No chords yet. Click an empty spot on the chord row above the waveform to add one.</>
+              : <>No chords. Load an audio file to begin, or load a saved session.</>}
           </p>
         )}
       </div>

@@ -1,5 +1,5 @@
 
-import React, { useEffect, useLayoutEffect, useRef } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import * as css from './BeatTapper.css';
 
@@ -79,12 +79,16 @@ const LyricChunk = React.memo(({ chunk, pps }) => {
   );
 });
 
-export const Waveform = React.memo(({ audioBuffer, currentTimeRef, isPlaying, markersRef, lyricChunks, onSeek, onPause }) => {
+export const Waveform = React.memo(({ audioBuffer, currentTimeRef, isPlaying, markersRef, markers, lyricChunks, chords, recentChordNames, onAddChord, onUpdateChord, onDeleteChord, onSeek, onPause }) => {
   const canvasRef = useRef(null);
   const offscreenRef = useRef(null);
   const ppsRef = useRef(PIXELS_PER_SECOND);
   const dragStateRef = useRef(null);
   const lyricsScrollerRef = useRef(null);
+  const chordsScrollerRef = useRef(null);
+  const chordsRowRef = useRef(null);
+  const chordDragStateRef = useRef(null);
+  const [editingChord, setEditingChord] = useState(null);
 
   const renderPps = audioBuffer && audioBuffer.duration * PIXELS_PER_SECOND > MAX_OFFSCREEN_WIDTH
     ? MAX_OFFSCREEN_WIDTH / audioBuffer.duration
@@ -151,9 +155,9 @@ export const Waveform = React.memo(({ audioBuffer, currentTimeRef, isPlaying, ma
       const pps = ppsRef.current;
       const { srcX, cursorX } = computeLayout(currentTime, pps, viewWidth);
 
+      const transform = `translate3d(${-srcX}px, 0, 0)`;
       const scroller = lyricsScrollerRef.current;
       if (scroller) {
-        const transform = `translate3d(${-srcX}px, 0, 0)`;
         if (transform !== lastLyricsTransform || scroller !== lastScroller) {
           scroller.style.transform = transform;
           lastLyricsTransform = transform;
@@ -162,6 +166,10 @@ export const Waveform = React.memo(({ audioBuffer, currentTimeRef, isPlaying, ma
       } else if (lastScroller) {
         lastScroller = null;
         lastLyricsTransform = null;
+      }
+      const chordsScroller = chordsScrollerRef.current;
+      if (chordsScroller) {
+        chordsScroller.style.transform = transform;
       }
 
       if (
@@ -316,7 +324,140 @@ export const Waveform = React.memo(({ audioBuffer, currentTimeRef, isPlaying, ma
     try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
   };
 
+  const findNearestBeatTime = (rawTime) => {
+    if (!markers || markers.length === 0) return rawTime;
+    let best = markers[0].time;
+    let bestDist = Math.abs(rawTime - best);
+    for (let i = 1; i < markers.length; i++) {
+      const d = Math.abs(rawTime - markers[i].time);
+      if (d < bestDist) { bestDist = d; best = markers[i].time; }
+    }
+    return best;
+  };
+
+  const chordRowClickToAdd = (e) => {
+    if (!audioBuffer || !onAddChord) return;
+    if (e.target !== chordsRowRef.current && e.target !== chordsScrollerRef.current) return;
+    const row = chordsRowRef.current;
+    if (!row) return;
+    const rect = row.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const currentTime = currentTimeRef.current;
+    const pps = ppsRef.current;
+    const { srcX } = computeLayout(currentTime, pps, rect.width);
+    const rawTime = Math.max(0, Math.min(audioBuffer.duration, (srcX + x) / pps));
+    const id = onAddChord(rawTime);
+    setEditingChord({ id, isNew: true, anchorLeft: e.clientX, anchorTop: rect.bottom });
+  };
+
+  const handleChordPointerDown = (e, chord) => {
+    e.stopPropagation();
+    if (!audioBuffer) return;
+    const target = e.currentTarget;
+    try { target.setPointerCapture(e.pointerId); } catch (_) {}
+    chordDragStateRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startTime: chord.time,
+      moved: false,
+      chordId: chord.id,
+      target,
+    };
+  };
+
+  const handleChordPointerMove = (e, chord) => {
+    const state = chordDragStateRef.current;
+    if (!state || state.pointerId !== e.pointerId || state.chordId !== chord.id) return;
+    e.stopPropagation();
+    const dx = e.clientX - state.startX;
+    if (!state.moved && Math.abs(dx) >= TAP_THRESHOLD_PX) state.moved = true;
+    if (state.moved && onUpdateChord) {
+      const pps = ppsRef.current;
+      const newTime = Math.max(0, Math.min(audioBuffer.duration, state.startTime + dx / pps));
+      onUpdateChord(chord.id, { time: newTime });
+    }
+  };
+
+  const handleChordPointerUp = (e, chord) => {
+    const state = chordDragStateRef.current;
+    if (!state || state.pointerId !== e.pointerId || state.chordId !== chord.id) return;
+    e.stopPropagation();
+    chordDragStateRef.current = null;
+    try { state.target.releasePointerCapture(e.pointerId); } catch (_) {}
+    if (!state.moved) {
+      const labelRect = state.target.getBoundingClientRect();
+      setEditingChord({ id: chord.id, isNew: false, anchorLeft: labelRect.left, anchorTop: labelRect.bottom });
+    } else if (onUpdateChord) {
+      const snapped = findNearestBeatTime(chord.time);
+      if (snapped !== chord.time) onUpdateChord(chord.id, { time: snapped });
+    }
+  };
+
+  const handleChordPointerCancel = (e, chord) => {
+    const state = chordDragStateRef.current;
+    if (!state || state.pointerId !== e.pointerId || state.chordId !== chord.id) return;
+    chordDragStateRef.current = null;
+    try { state.target.releasePointerCapture(e.pointerId); } catch (_) {}
+  };
+
+  const closeEditor = (commitName) => {
+    if (!editingChord) return;
+    const trimmed = (commitName ?? '').trim();
+    if (!trimmed) {
+      if (onDeleteChord) onDeleteChord(editingChord.id);
+    } else if (onUpdateChord) {
+      onUpdateChord(editingChord.id, { name: trimmed });
+    }
+    setEditingChord(null);
+  };
+
+  const cancelEditor = () => {
+    if (!editingChord) return;
+    if (editingChord.isNew && onDeleteChord) onDeleteChord(editingChord.id);
+    setEditingChord(null);
+  };
+
+  const editingChordData = editingChord
+    ? chords?.find((c) => c.id === editingChord.id)
+    : null;
+
   return <>
+    <div
+      ref={chordsRowRef}
+      className={css.chordsRow}
+      onClick={chordRowClickToAdd}
+    >
+      <div
+        ref={chordsScrollerRef}
+        className={css.chordsScroller}
+        style={{ width: `${totalWidth}px` }}
+      >
+        {chords && chords.map((c) => (
+          <div
+            key={c.id}
+            className={css.chordLabel}
+            style={{ left: `${c.time * renderPps}px` }}
+            onPointerDown={(e) => handleChordPointerDown(e, c)}
+            onPointerMove={(e) => handleChordPointerMove(e, c)}
+            onPointerUp={(e) => handleChordPointerUp(e, c)}
+            onPointerCancel={(e) => handleChordPointerCancel(e, c)}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <span className={css.chordLabelText}>{c.name || '?'}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+    {editingChordData && (
+      <ChordEditor
+        chord={editingChordData}
+        anchorLeft={editingChord.anchorLeft}
+        anchorTop={editingChord.anchorTop}
+        recentChordNames={recentChordNames}
+        onCommit={closeEditor}
+        onCancel={cancelEditor}
+      />
+    )}
     {lyricChunks && lyricChunks.length > 0 && (
       <div className={css.lyricsRow}>
         <div
@@ -348,3 +489,136 @@ export const Waveform = React.memo(({ audioBuffer, currentTimeRef, isPlaying, ma
     </div>
   </>;
 });
+
+const ROOT_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const CHORD_QUALITIES = [
+  { label: 'maj', suffix: '' },
+  { label: 'm', suffix: 'm' },
+  { label: '7', suffix: '7' },
+  { label: 'maj7', suffix: 'maj7' },
+  { label: 'm7', suffix: 'm7' },
+  { label: 'dim', suffix: 'dim' },
+  { label: 'aug', suffix: 'aug' },
+  { label: 'sus2', suffix: 'sus2' },
+  { label: 'sus4', suffix: 'sus4' },
+  { label: '6', suffix: '6' },
+];
+
+const ChordEditor = ({ chord, anchorLeft, anchorTop, recentChordNames, onCommit, onCancel }) => {
+  const [value, setValue] = useState(chord.name);
+  const [pickedRoot, setPickedRoot] = useState('');
+  const [pickedQuality, setPickedQuality] = useState('');
+  const [pos, setPos] = useState({ left: anchorLeft, top: anchorTop + 4 });
+  const inputRef = useRef(null);
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    const el = inputRef.current;
+    if (el) {
+      el.focus();
+      el.select();
+    }
+  }, []);
+
+  useLayoutEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const margin = 8;
+    let left = anchorLeft;
+    let top = anchorTop + 4;
+    if (left + rect.width > window.innerWidth - margin) {
+      left = Math.max(margin, window.innerWidth - margin - rect.width);
+    }
+    if (left < margin) left = margin;
+    if (top + rect.height > window.innerHeight - margin) {
+      top = Math.max(margin, anchorTop - rect.height - 4);
+    }
+    setPos({ left, top });
+  }, [anchorLeft, anchorTop]);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        onCommit(value);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [onCommit, value]);
+
+  const onTypeValue = (next) => {
+    setValue(next);
+    setPickedRoot('');
+    setPickedQuality('');
+  };
+
+  const handleRoot = (root) => {
+    setPickedRoot(root);
+    setValue(root + pickedQuality);
+  };
+
+  const handleQuality = (quality) => {
+    setPickedQuality(quality.suffix);
+    setValue(pickedRoot + quality.suffix);
+  };
+
+  return (
+    <div
+      ref={containerRef}
+      className={css.chordEditor}
+      style={{ left: `${pos.left}px`, top: `${pos.top}px` }}
+      onClick={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
+    >
+      <div className={css.chordEditorRow}>
+        <input
+          ref={inputRef}
+          type="text"
+          className={css.chordEditorInput}
+          value={value}
+          placeholder="Chord (e.g. Cmaj7)"
+          onChange={(e) => onTypeValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') { e.preventDefault(); onCommit(value); }
+            else if (e.key === 'Escape') { e.preventDefault(); onCancel(); }
+          }}
+        />
+        <button type="button" onClick={() => onCommit(value)}>Save</button>
+        <button type="button" className={css.chordEditorDelete} onClick={() => onCommit('')} aria-label="Delete chord">×</button>
+      </div>
+      {recentChordNames && recentChordNames.length > 0 && (
+        <div className={css.chordEditorRecent}>
+          {recentChordNames.map((name) => (
+            <button
+              key={name}
+              type="button"
+              className={css.chordRecentChip}
+              onClick={() => onCommit(name)}
+            >{name}</button>
+          ))}
+        </div>
+      )}
+      <div className={css.chordPickerGrid}>
+        {ROOT_NOTES.map((root) => (
+          <button
+            key={root}
+            type="button"
+            className={`${css.chordPickerChip} ${pickedRoot === root ? css.chordPickerChipActive : ''}`}
+            onClick={() => handleRoot(root)}
+          >{root}</button>
+        ))}
+      </div>
+      <div className={css.chordPickerRow}>
+        {CHORD_QUALITIES.map((q) => (
+          <button
+            key={q.label}
+            type="button"
+            className={`${css.chordPickerChip} ${pickedQuality === q.suffix ? css.chordPickerChipActive : ''}`}
+            onClick={() => handleQuality(q)}
+          >{q.label}</button>
+        ))}
+      </div>
+    </div>
+  );
+};

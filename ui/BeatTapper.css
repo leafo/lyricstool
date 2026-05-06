@@ -122,6 +122,194 @@
   overflow: hidden;
 }
 
+.chordsRow {
+  position: relative;
+  width: 100%;
+  height: 28px;
+  background: var(--content-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  cursor: copy;
+  overflow: hidden;
+}
+
+.chordsScroller {
+  position: relative;
+  height: 100%;
+  will-change: transform;
+}
+
+.chordLabel {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  display: flex;
+  align-items: center;
+  padding: 0 6px;
+  margin-left: -1px;
+  background: rgba(230, 126, 34, 0.18);
+  border-left: 2px solid #e67e22;
+  border-radius: 0 3px 3px 0;
+  font-family: monospace;
+  font-size: 12px;
+  font-weight: bold;
+  color: #b8651b;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  white-space: nowrap;
+}
+
+.chordLabel:active {
+  cursor: grabbing;
+}
+
+.chordLabelText {
+  pointer-events: none;
+}
+
+.chordEditor {
+  position: fixed;
+  z-index: 10;
+  background: var(--content-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 8px;
+  min-width: 360px;
+}
+
+.chordEditorRow {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.chordEditorInput {
+  flex: 1;
+  padding: 4px 6px;
+  font-family: monospace;
+  font-size: 14px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  background: var(--content-bg);
+  color: var(--text-color);
+}
+
+.chordEditorDelete {
+  background: transparent;
+  color: var(--muted-text-color);
+  box-shadow: none;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0 8px;
+  border-radius: var(--border-radius);
+}
+
+.chordEditorDelete:hover {
+  background: var(--error-color);
+  color: white;
+}
+
+.chordEditorRecent {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.chordRecentChip {
+  padding: 2px 8px;
+  font-family: monospace;
+  font-size: 12px;
+  background: var(--beat-bg-color);
+  border: 1px solid var(--beat-border-color);
+  color: var(--text-color);
+  border-radius: var(--border-radius);
+  box-shadow: none;
+}
+
+.chordRecentChip:hover {
+  background: rgba(230, 126, 34, 0.2);
+  border-color: #e67e22;
+}
+
+.chordPickerGrid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 3px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border-color);
+}
+
+.chordPickerRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 4px;
+}
+
+.chordPickerChip {
+  padding: 4px 6px;
+  font-family: monospace;
+  font-size: 12px;
+  background: var(--beat-bg-color);
+  border: 1px solid var(--beat-border-color);
+  color: var(--text-color);
+  border-radius: var(--border-radius);
+  box-shadow: none;
+  min-width: 0;
+}
+
+.chordPickerChip:hover {
+  background: rgba(230, 126, 34, 0.15);
+  border-color: #e67e22;
+}
+
+.chordPickerChipActive {
+  background: rgba(230, 126, 34, 0.4);
+  border-color: #e67e22;
+  color: #b8651b;
+  font-weight: bold;
+}
+
+.chordList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 4px;
+
+  li {
+    display: flex;
+    align-items: stretch;
+    background: var(--beat-bg-color);
+    border: 1px solid var(--beat-border-color);
+    border-radius: var(--border-radius);
+    overflow: hidden;
+  }
+}
+
+.chordNameInput {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  font-family: monospace;
+  font-size: 13px;
+  border: none;
+  border-left: 1px solid var(--beat-border-color);
+  background: var(--content-bg);
+  color: var(--text-color);
+}
+
+.chordNameInput:focus {
+  outline: 2px solid var(--button-enabled-bg);
+  outline-offset: -2px;
+}
+
 .lyricsScroller {
   position: relative;
   height: 100%;
